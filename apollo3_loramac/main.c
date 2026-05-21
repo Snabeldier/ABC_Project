@@ -42,29 +42,31 @@
 #error "You must define exactly one hardware version!"
 #endif
 
-// The processor clock is initialized by CMSIS startup + system file
-int main(void) { // User application starts here
+int main(void) {
+	
+	// Set the CPU to the correct operating frequency 
+	// see: https://github.com/sparkfun/AmbiqSuiteSDK/blob/e280cbde3e366509da6768ab95471782a05d2371/mcu/apollo3/hal/am_hal_clkgen.h#L209
   am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_SYSCLK_MAX, 0);
-  am_hal_pwrctrl_low_power_init();
+
+	// Initialize system for low power configuration
+	// see: https://github.com/sparkfun/AmbiqSuiteSDK/blob/e280cbde3e366509da6768ab95471782a05d2371/mcu/apollo3/hal/am_hal_pwrctrl.c#L513
+	am_hal_pwrctrl_low_power_init();
+	
+	// Stop the (internal?) RTC oscillator
+	// see: https://github.com/sparkfun/AmbiqSuiteSDK/blob/e280cbde3e366509da6768ab95471782a05d2371/mcu/apollo3/hal/am_hal_rtc.c#L137
   am_hal_rtc_osc_disable();
-  enable_printf();
-  am_util_stdio_printf("Ecosense Vegetation 2025");
 
-  // Set the clock frequency.
-  am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_SYSCLK_MAX, 0);
-
-  // Set the default cache configuration
-  am_hal_cachectrl_config( & am_hal_cachectrl_defaults);
-  am_hal_cachectrl_enable();
-
-  // Set the default cache configuration and enable it.
+  // Set the default cache configuration and enable it
   if (AM_HAL_STATUS_SUCCESS != am_hal_cachectrl_config( & am_hal_cachectrl_defaults)) {
     am_util_stdio_printf("Error - configuring the system cache failed.\n");
   }
-
   if (AM_HAL_STATUS_SUCCESS != am_hal_cachectrl_enable()) {
     am_util_stdio_printf("Error - enabling the system cache failed.\n");
   }
+	
+	// Enable console prints
+  enable_printf();
+  am_util_stdio_printf("Ecosense Vegetation 2025");
 	
 	am_hal_gpio_pinconfig(37, g_AM_HAL_GPIO_OUTPUT); // Configure D1 to be an output pin (red led)
 	am_hal_gpio_pinconfig(38, g_AM_HAL_GPIO_OUTPUT); // Configure D2 to be an output pin (green led)
