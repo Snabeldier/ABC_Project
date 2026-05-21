@@ -270,18 +270,11 @@ void periodicUplink(void) {
       BoardLowPowerHandler();
     }
     CRITICAL_SECTION_END();
-    #ifdef HW_ECOVETTE
-    APP_TX_DUTYCYCLE = 120000;
-    #elif HW_CF_SENSOR
-    APP_TX_DUTYCYCLE = 60000; // Can change this to change duty cycle when needed or wanted
-    #endif
     APP_TX_DUTYCYCLE = 10000; // Can change this to change duty cycle when needed or wanted
     TxPeriodicity = 0;
     while (TxPeriodicity < APP_TX_DUTYCYCLE || TxPeriodicity > APP_TX_DUTYCYCLE + APP_TX_DUTYCYCLE_RND) {
       TxPeriodicity = APP_TX_DUTYCYCLE + randr(0, APP_TX_DUTYCYCLE_RND);
     }
-
-    //TxPeriodicity = APP_TX_DUTYCYCLE + randr( -APP_TX_DUTYCYCLE_RND, APP_TX_DUTYCYCLE_RND );
   }
 }
 
