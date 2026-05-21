@@ -407,14 +407,10 @@ static etError MeasureTempAndHumidity(uint16_t *tempData, uint16_t *humData) {
  */
 static void PrepareTxFrame(void) {
 
-  /*!
-   * User application data
-   */
+  //User application data
   uint8_t AppDataBuffer2[LORAWAN_APP_DATA_BUFFER_MAX_SIZE];
 
-  /*!
-   * User application data structure
-   */
+  // User application data structure
   LmHandlerAppData_t AppData2 = {
     .Buffer = AppDataBuffer2,
     .BufferSize = 0,
@@ -434,23 +430,11 @@ static void PrepareTxFrame(void) {
     return;
   }
 
-  //uint8_t channel = 0;
-
-  //SendData_t data;
-
-  //data.Measurement.fl_ctr = fl_meas_ctr;
-
-  //measurementProcess( & data); //get measurement data #todo implement this
-
-  //fl_meas_ctr = data.Measurement.fl_ctr;
-
   AppData2.Port = LORAWAN_APP_PORT;
   JalapenosLppReset();
   JalapenosLppAddDeviceID(34000);
   JalapenosLppAddDummyData();
 	am_util_stdio_printf("[DEBUG] Start Data Collection\n");
-	//uint16_t temp;
-	//uint16_t hum;
 	float temp;
 	float hum;
 	etError error = SHTC3_GetTempAndHumi(&temp, &hum);
@@ -460,8 +444,6 @@ static void PrepareTxFrame(void) {
 	if (error == CHECKSUM_ERROR) {
 		am_util_stdio_printf("[ERROR] Error while reading sensor data: CHECKSUM_ERROR\n");
 	}
-	//MeasureTempAndHumidity(&temp, &hum);
-	//am_util_stdio_printf("[DEBUG] %d %d", &temp, &hum);
 	JalapenosLppAddTemperatureAndHumidity(temp, hum);
 
   //SysTime_t currentTime = SysTimeGet();
@@ -470,8 +452,7 @@ static void PrepareTxFrame(void) {
   am_util_stdio_printf("[DEBUG] Data sending...");
   JalapenosLppCopy(AppData2.Buffer);
   AppData2.BufferSize = JalapenosLppGetSize();
-
-  //LmHandlerDeviceTimeReq();
+	
   LmHandlerSend( & AppData2, LmHandlerParams.IsTxConfirmed);
   am_util_stdio_printf("[DEBUG] Data successfully sent!");
 }
