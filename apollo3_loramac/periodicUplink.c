@@ -372,55 +372,6 @@ static void OnSysTimeUpdate(bool isSynchronized, int32_t timeCorrection) {}
 static void OnSysTimeUpdate(void) {}
 #endif
 
-	
-//	// Copied from shtc3.c -> Timm Luhmann (IMTEK)
-//typedef struct
-//{
-//    uint32_t                    ui32Module;
-//    void                        *pIomHandle;
-//    bool                        bOccupied;
-//} am_devices_iom_shtc3_t;
-
-//am_devices_iom_shtc3_t gShtc3[AM_DEVICES_SHTC3_MAX_DEVICE_NUM];	//one device maximum
-//#include "shtc3.h"
-
-//static etError SHTC3_CheckCrc(uint8_t data[], uint8_t nbrOfBytes,
-//                              uint8_t checksum)
-//{
-//    uint8_t bit;        // bit mask
-//    uint8_t crc = 0xFF; // calculated checksum
-//    uint8_t byteCtr;    // byte counter
-
-//    // calculates 8-Bit checksum with given polynomial
-//    for (byteCtr = 0; byteCtr < nbrOfBytes; byteCtr++)
-//    {
-//        crc ^= (data[byteCtr]);
-//        for (bit = 8; bit > 0; --bit)
-//        {
-//            if (crc & 0x80)
-//            {
-//                crc = (crc << 1) ^ CRC_POLYNOMIAL;
-//            }
-//            else
-//            {
-//                crc = (crc << 1);
-//            }
-//        }
-//    }
-
-//    // verify checksum
-//    if (crc != checksum)
-//    {
-//        return CHECKSUM_ERROR;
-//    }
-//    else
-//    {
-//        return NO_ERROR;
-//    }
-//}
-
-// // end of copy
-	
 static etError MeasureTempAndHumidity(uint16_t *tempData, uint16_t *humData) {
 	etError error = NO_ERROR;
 //  uint8_t data[6];  // Array to hold data bytes and CRCs
