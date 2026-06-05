@@ -402,6 +402,8 @@ static etError MeasureTempAndHumidity(uint16_t *tempData, uint16_t *humData) {
   return error;
 }
 
+#include "sht3x.h"
+
 /*!
  * Prepares the payload of the frame and transmits it.
  */
@@ -434,13 +436,15 @@ static void PrepareTxFrame(void) {
   JalapenosLppReset();
   JalapenosLppAddDeviceID(34000);
 	am_util_stdio_printf("[DEBUG] Start Data Collection\n");
+	
 	float temp;
 	float hum;
-	etError error = SHTC3_GetTempAndHumi(&temp, &hum);
-	if (error == ACK_ERROR) {
+	SHT3X_Error error = SHT3X_GetTempAndHumi(&temp, &hum);
+	//etError error = SHTC3_GetTempAndHumi(&temp, &hum);
+	if (error == SHT3X_ACK_ERROR) {
 		am_util_stdio_printf("[ERROR] Error while reading sensor data: ACK_ERROR\n");
 	}
-	if (error == CHECKSUM_ERROR) {
+	if (error == SHT3X_CHECKSUM_ERROR) {
 		am_util_stdio_printf("[ERROR] Error while reading sensor data: CHECKSUM_ERROR\n");
 	}
 	JalapenosLppAddTemperatureAndHumidity(temp, hum);
