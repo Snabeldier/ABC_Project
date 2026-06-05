@@ -433,7 +433,6 @@ static void PrepareTxFrame(void) {
   AppData2.Port = LORAWAN_APP_PORT;
   JalapenosLppReset();
   JalapenosLppAddDeviceID(34000);
-  JalapenosLppAddDummyData();
 	am_util_stdio_printf("[DEBUG] Start Data Collection\n");
 	float temp;
 	float hum;

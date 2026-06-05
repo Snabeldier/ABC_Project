@@ -185,19 +185,11 @@ etError SHTC3_GetTempAndHumi(float *temp, float *humi)
     etError error = NO_ERROR;
 
     error = SHTC3_Wakeup();
-		if (error != NO_ERROR) {
-			am_util_stdio_printf("[DEBUG] Already error after wakeup\n");
-		}
 	timerDelay(1);		//give sensor time to wake up to prevent measurement errors
     // Set sensor in measureing mode (Temperature first, than Humidity)
     command = MEAS_T_RH_POLLING;
 	am_devices_iom_shtc3_t *pIom = (am_devices_iom_shtc3_t *)my_IomdevHdl;
-	am_util_stdio_printf("[DEBUG] Address: %u (should be %u)\n", ADDRESS_SHTC3, 0x44);
-	if (am_device_command_write(pIom->pIomHandle, ADDRESS_SHTC3, 2,
-					   command,
-					   false, 0, 0))
-    {
-			am_util_stdio_printf("[ERROR] Error in first if");
+	if (am_device_command_write(pIom->pIomHandle, ADDRESS_SHTC3, 2, command, false, 0, 0)) {
         error |= ACK_ERROR;
     }
 

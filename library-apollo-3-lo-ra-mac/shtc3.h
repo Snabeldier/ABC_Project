@@ -28,7 +28,7 @@
  * CONSTANTS
  *****************************************************************************/
 #define CRC_POLYNOMIAL  0x131 // P(x) = x^8 + x^5 + x^4 + 1 = 100110001
-#define ADDRESS_SHTC3   0x44
+#define ADDRESS_SHTC3   0x69
 #define AM_DEVICES_SHTC3_MAX_DEVICE_NUM 1
 
 // Error codes
