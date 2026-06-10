@@ -1,37 +1,32 @@
 /***************************************************************************//**
  * \file    sht3x.c
  *
- * \brief   Library to access the Sensirion SHT3x Temperature and Humidity
- *          sensor via I2C on Ambiq Apollo3.
+ * \brief   Driver for Sensirion SHT3x temperature and humidity sensor via I2C
+ *          on the Ambiq Apollo3.
  *
- * \note    SHT3x communication protocol (single shot mode):
- *          1. Write 2-byte measurement command as Instruction (InstrLen=2)
- *          2. Wait 100ms
- *          3. Read 2 Words (8 bytes) from sensor
+ * \note    Single-shot measurement sequence (no clock stretching):
+ *          1. Write 2-byte command SHT3X_CMD_MEAS_HIGHREP
+ *          2. Wait >= 15 ms for conversion to complete
+ *          3. Read 6 bytes: [T_MSB][T_LSB][CRC_T][H_MSB][H_LSB][CRC_H]
  ******************************************************************************/
 
 #include "sht3x.h"
+#include "am_util_delay.h"
 
 /******************************************************************************
  * TYPES
  *****************************************************************************/
-typedef struct
-{
-    uint32_t    ui32Module;
-    void        *pIomHandle;
-    bool        bOccupied;
-} am_devices_iom_sht3x_t;
 
-am_devices_iom_sht3x_t gSht3x[AM_DEVICES_SHT3X_MAX_DEVICE_NUM];
+typedef struct {
+    uint32_t  ui32Module;
+    void     *pIomHandle;
+    bool      bOccupied;
+} am_devices_iom_sht3x_t;
 
 /******************************************************************************
  * LOCAL FUNCTIONS
  *****************************************************************************/
 
-//------------------------------------------------------------------------------
-// CRC-8 (polynomial 0x31, init 0xFF) — as per SHT3x datasheet
-// Verified: CRC([BE,EF]) = 0x92 ?
-//------------------------------------------------------------------------------
 static SHT3X_Error SHT3X_CheckCrc(uint8_t data[], uint8_t nbrOfBytes, uint8_t checksum)
 {
     uint8_t crc = SHT3X_CRC_INIT;
@@ -51,121 +46,91 @@ static SHT3X_Error SHT3X_CheckCrc(uint8_t data[], uint8_t nbrOfBytes, uint8_t ch
     return (crc == checksum) ? SHT3X_NO_ERROR : SHT3X_CHECKSUM_ERROR;
 }
 
-//------------------------------------------------------------------------------
-// T [°C] = -45 + 175 * rawValue / (2^16 - 1)
-//------------------------------------------------------------------------------
 static float SHT3X_CalcTemperature(uint16_t rawValue)
 {
     return 175.0f * (float)rawValue / 65535.0f - 45.0f;
 }
 
-//------------------------------------------------------------------------------
-// RH [%] = 100 * rawValue / (2^16 - 1)
-//------------------------------------------------------------------------------
 static float SHT3X_CalcHumidity(uint16_t rawValue)
 {
-    return 100.0f * (float)rawValue / 65535.0f;
+    float rh = 100.0f * (float)rawValue / 65535.0f;
+    if (rh > 100.0f) rh = 100.0f;
+    if (rh < 0.0f)   rh = 0.0f;
+    return rh;
 }
 
 /******************************************************************************
  * PUBLIC FUNCTIONS
  *****************************************************************************/
 
-//------------------------------------------------------------------------------
+
 SHT3X_Error SHT3X_SoftReset(void)
 {
     am_devices_iom_sht3x_t *pIom = (am_devices_iom_sht3x_t *)my_IomdevHdl;
-
+    /* Soft reset: 2-byte command [0x30][0xA2] sent as 1-byte instr + 1 data byte */
+    uint32_t lsb = 0xA2;
     if (am_device_command_write(pIom->pIomHandle, ADDRESS_SHT3X,
-                                2, SHT3X_SOFT_RESET,
-                                false, 0, 0))
+                                1, 0x30,
+                                false, &lsb, 1))
     {
-        am_util_stdio_printf("[ERROR] SHT3X_SoftReset: ACK error\n");
         return SHT3X_ACK_ERROR;
     }
 
-    am_hal_flash_delay(FLASH_CYCLES_US(2000));
+    am_util_delay_ms(2);
     return SHT3X_NO_ERROR;
 }
 
-//------------------------------------------------------------------------------
 SHT3X_Error SHT3X_GetTempAndHumi(float *temp, float *humi)
 {
-    SHT3X_Error error      = SHT3X_NO_ERROR;
-    uint32_t    receive[2] = {0, 0};
+    SHT3X_Error error = SHT3X_NO_ERROR;
+    uint32_t    receive[2];
     uint8_t     bytes[2];
+    uint8_t     checksum;
     uint16_t    rawTemp;
     uint16_t    rawHumi;
 
     am_devices_iom_sht3x_t *pIom = (am_devices_iom_sht3x_t *)my_IomdevHdl;
 
-    // --- Step 1: Send measurement command as Instruction ---
+    /* Measurement command: 2-byte [0x24][0x00] sent as 1-byte instr + 1 data byte
+     * (avoids potential instrLen=2 HAL issue) */
+    uint32_t cmd_lsb = 0x00;
     if (am_device_command_write(pIom->pIomHandle, ADDRESS_SHT3X,
-                                2, SHT3X_MEAS_HIGHREP,
-                                false, 0, 0))
+                                1, 0x24,
+                                false, &cmd_lsb, 1))
     {
-        am_util_stdio_printf("[ERROR] SHT3X: Write measurement command failed\n");
         return SHT3X_ACK_ERROR;
     }
 
-    // --- Step 2: Wait generously for measurement to complete ---
-    am_hal_flash_delay(FLASH_CYCLES_US(100000)); // 100ms
+    am_util_delay_ms(20); /* SHT3x high repeatability max = 15.5 ms */
 
-    // --- Step 3: Read 2 words (8 bytes) ---
-    if (am_device_command_read(pIom->pIomHandle, ADDRESS_SHT3X, 0,
-                               0, false, receive, 6))
+    if (am_device_command_read(pIom->pIomHandle, ADDRESS_SHT3X,
+                               0, 0, false, receive, 6))
     {
-        am_util_stdio_printf("[ERROR] SHT3X: Read failed\n");
         return SHT3X_ACK_ERROR;
     }
 
-    am_util_stdio_printf("[DEBUG] Bytes: %02X %02X %02X %02X | %02X %02X %02X %02X\n",
-        (uint8_t)(receive[0]),
-        (uint8_t)(receive[0] >> 8),
-        (uint8_t)(receive[0] >> 16),
-        (uint8_t)(receive[0] >> 24),
-        (uint8_t)(receive[1]),
-        (uint8_t)(receive[1] >> 8),
-        (uint8_t)(receive[1] >> 16),
-        (uint8_t)(receive[1] >> 24));
+    /* Apollo3 IOM HAL packs received bytes little-endian into uint32_t words:
+     * receive[0]: byte0=T_MSB, byte1=T_LSB, byte2=CRC_T, byte3=H_MSB
+     * receive[1]: byte0=H_LSB, byte1=CRC_H */
 
-    // --- Step 4: Extract bytes ---
-    uint8_t T_MSB = (uint8_t)(receive[0]);
-    uint8_t T_LSB = (uint8_t)(receive[0] >> 8);
-    uint8_t CRC_T = (uint8_t)(receive[0] >> 16);
-    uint8_t H_MSB = (uint8_t)(receive[0] >> 24);
-    uint8_t H_LSB = (uint8_t)(receive[1]);
-    uint8_t CRC_H = (uint8_t)(receive[1] >> 8);
+    bytes[0] = (uint8_t)(receive[0]);
+    bytes[1] = (uint8_t)(receive[0] >> 8);
+    checksum  = (uint8_t)(receive[0] >> 16);
+    if (SHT3X_CheckCrc(bytes, 2, checksum) != SHT3X_NO_ERROR)
+        error = SHT3X_CHECKSUM_ERROR;
+    rawTemp = ((uint16_t)bytes[0] << 8) | bytes[1];
 
-    am_util_stdio_printf("[DEBUG] SHT3X Raw: T=%02X %02X CRC=%02X | H=%02X %02X CRC=%02X\n",
-                         T_MSB, T_LSB, CRC_T, H_MSB, H_LSB, CRC_H);
+    bytes[0] = (uint8_t)(receive[0] >> 24);
+    bytes[1] = (uint8_t)(receive[1]);
+    checksum  = (uint8_t)(receive[1] >> 8);
+    if (SHT3X_CheckCrc(bytes, 2, checksum) != SHT3X_NO_ERROR)
+        error = SHT3X_CHECKSUM_ERROR;
+    rawHumi = ((uint16_t)bytes[0] << 8) | bytes[1];
 
-    // --- Step 5: CRC check temperature ---
-    bytes[0] = T_MSB;
-    bytes[1] = T_LSB;
-    if (SHT3X_CheckCrc(bytes, 2, CRC_T) != SHT3X_NO_ERROR)
-    {
-        am_util_stdio_printf("[ERROR] SHT3X: Temperature CRC mismatch\n");
-        error |= SHT3X_CHECKSUM_ERROR;
-    }
-    rawTemp = ((uint16_t)T_MSB << 8) | T_LSB;
-
-    // --- Step 6: CRC check humidity ---
-    bytes[0] = H_MSB;
-    bytes[1] = H_LSB;
-    if (SHT3X_CheckCrc(bytes, 2, CRC_H) != SHT3X_NO_ERROR)
-    {
-        am_util_stdio_printf("[ERROR] SHT3X: Humidity CRC mismatch\n");
-        error |= SHT3X_CHECKSUM_ERROR;
-    }
-    rawHumi = ((uint16_t)H_MSB << 8) | H_LSB;
-
-    // --- Step 7: Convert to physical values ---
     if (error == SHT3X_NO_ERROR)
     {
         *temp = SHT3X_CalcTemperature(rawTemp);
         *humi = SHT3X_CalcHumidity(rawHumi);
-        am_util_stdio_printf("[DEBUG] SHT3X: Temp=%.2f C, Humi=%.2f%%\n", *temp, *humi);
     }
 
     return error;

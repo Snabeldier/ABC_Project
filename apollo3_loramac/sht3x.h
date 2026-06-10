@@ -1,8 +1,8 @@
 /***************************************************************************//**
  * \file    sht3x.h
  *
- * \brief   Library to access the Sensirion SHT3x Temperature and Humidity
- *          sensor via I2C on Ambiq Apollo3.
+ * \brief   Driver for Sensirion SHT3x temperature and humidity sensor via I2C
+ *          on the Ambiq Apollo3.
  ******************************************************************************/
 
 #ifndef SHT3X_H
@@ -12,29 +12,26 @@
 #include <stdbool.h>
 #include "i2c.h"
 #include "am_mcu_apollo.h"
-#include "am_util_stdio.h"
 
 /******************************************************************************
  * DEFINES
  *****************************************************************************/
 
-#define ADDRESS_SHT3X                   0x69
+#define ADDRESS_SHT3X           0x44  /* ADDR pin = GND */
 
-// Commands sent as Instruction (ui32InstrLen=2), Apollo3 IOM sends LSB first
-// so values are byte-swapped vs SHT3x datasheet
-#define SHT3X_MEAS_HIGHREP              0x0024   // wire: [24][00], no clock stretching
-#define SHT3X_MEAS_HIGHREP_CS           0x062C   // wire: [2C][06], clock stretching
-#define SHT3X_SOFT_RESET                0xA230   // wire: [30][A2]
+/* Command bytes as stored for Apollo3 IOM (sends instruction LSB-first).
+ * SHT3x datasheet wire order is MSB-first, so values are byte-swapped here.
+ * Example: datasheet command 0x2400 -> stored as 0x0024 -> wire: [0x24][0x00] */
+#define SHT3X_CMD_MEAS_HIGHREP  0x0024   /* single-shot, high repeatability, no clock stretch */
+#define SHT3X_CMD_SOFT_RESET    0xA230   /* soft reset */
 
-// CRC-8 parameters (as per SHT3x datasheet)
-#define SHT3X_CRC_POLYNOMIAL            0x31
-#define SHT3X_CRC_INIT                  0xFF
-
-#define AM_DEVICES_SHT3X_MAX_DEVICE_NUM 1
+#define SHT3X_CRC_POLYNOMIAL    0x31
+#define SHT3X_CRC_INIT          0xFF
 
 /******************************************************************************
- * ERROR CODES
+ * TYPES
  *****************************************************************************/
+
 typedef enum {
     SHT3X_NO_ERROR       = 0,
     SHT3X_ACK_ERROR      = 1,
@@ -42,14 +39,16 @@ typedef enum {
 } SHT3X_Error;
 
 /******************************************************************************
- * EXTERNAL HANDLE
+ * EXTERNAL VARIABLES
  *****************************************************************************/
+
 extern void *my_IomdevHdl;
 
 /******************************************************************************
  * FUNCTION PROTOTYPES
  *****************************************************************************/
+
 SHT3X_Error SHT3X_GetTempAndHumi(float *temp, float *humi);
 SHT3X_Error SHT3X_SoftReset(void);
 
-#endif // SHT3X_H
+#endif /* SHT3X_H */
