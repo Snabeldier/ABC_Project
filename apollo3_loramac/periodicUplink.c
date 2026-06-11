@@ -403,6 +403,7 @@ static etError MeasureTempAndHumidity(uint16_t *tempData, uint16_t *humData) {
 }
 
 #include "sht3x.h"
+#include "ina219.h"
 
 /*!
  * Prepares the payload of the frame and transmits it.
@@ -448,6 +449,18 @@ static void PrepareTxFrame(void) {
 		am_util_stdio_printf("[ERROR] Error while reading sensor data: CHECKSUM_ERROR\n");
 	}
 	JalapenosLppAddTemperatureAndHumidity(temp, hum);
+
+	float shuntVoltage_mV, busVoltage_V, current_uA;
+	INA219_Error inaError = INA219_Init();
+	if (inaError == INA219_NO_ERROR)
+		inaError = INA219_GetMeasurements(&shuntVoltage_mV, &busVoltage_V, &current_uA);
+	if (inaError != INA219_NO_ERROR) {
+		am_util_stdio_printf("[ERROR] INA219 read failed: ACK_ERROR\n");
+		shuntVoltage_mV = 0.0f;
+		busVoltage_V    = 0.0f;
+		current_uA      = 0.0f;
+	}
+	JalapenosLppAddPowerMeasurement(shuntVoltage_mV, busVoltage_V, current_uA);
 
   //SysTime_t currentTime = SysTimeGet();
   //JalapenosLppAddTimestamp(channel, currentTime.Seconds);

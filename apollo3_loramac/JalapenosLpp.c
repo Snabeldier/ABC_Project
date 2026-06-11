@@ -477,6 +477,30 @@ uint8_t JalapenosLppAddCurrent ( uint8_t channel, float current){
     return JalapenosLppCursor;	
 }
 
+uint8_t JalapenosLppAddPowerMeasurement(float shuntVoltage_mV, float busVoltage_V, float current_uA)
+{
+    if ((JalapenosLppCursor + LPP_POWER_MEASUREMENT_SIZE) > Jalapenos_LPP_MAXBUFFER_SIZE)
+        return 0;
+
+    /* shuntVoltage: 0.01 mV resolution -> range +-327.67 mV (covers +-320 mV INA219 range) */
+    int16_t shuntVal   = (int16_t)(shuntVoltage_mV * 100.0f);
+    /* busVoltage: 1 mV resolution -> range 0-65.535 V */
+    int16_t busVal     = (int16_t)(busVoltage_V * 1000.0f);
+    /* current: 1 uA resolution -> range +-32.767 mA */
+    int16_t currentVal = (int16_t)(current_uA);
+
+    JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(shuntVal);
+    JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(shuntVal >> 8);
+
+    JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(busVal);
+    JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(busVal >> 8);
+
+    JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(currentVal);
+    JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(currentVal >> 8);
+
+    return JalapenosLppCursor;
+}
+
 uint8_t JalapenosLppAddCapVoltage ( uint8_t channel, float CapVoltage){
 
 	
