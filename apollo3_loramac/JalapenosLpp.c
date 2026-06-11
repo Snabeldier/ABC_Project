@@ -333,24 +333,22 @@ uint8_t JalapenosLppAddDummyData() {
     return JalapenosLppCursor;	
 }
 
-uint8_t JalapenosLppAddTemperatureAndHumidity(int temp, int humid) {
+uint8_t JalapenosLppAddTemperatureAndHumidity(float temp, float humid) {
 
 	if(( JalapenosLppCursor + LPP_TEMP_AND_HUMID_SIZE) > Jalapenos_LPP_MAXBUFFER_SIZE ) {
         return 0;
     }
-		
-		union analogVal tempA;
-		tempA.analog = temp;
-		
-		union analogVal humidA;
-		humidA.analog = humid;
-		
-		JalapenosLppBuffer[JalapenosLppCursor++] = tempA.bytes[0];
-		JalapenosLppBuffer[JalapenosLppCursor++] = tempA.bytes[1];
-		
-		JalapenosLppBuffer[JalapenosLppCursor++] = humidA.bytes[0];
-    JalapenosLppBuffer[JalapenosLppCursor++] = humidA.bytes[1];
-    return JalapenosLppCursor;	
+
+    int16_t tempVal  = (int16_t)(temp  * 100);
+    int16_t humidVal = (int16_t)(humid * 100);
+
+    JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(tempVal);
+    JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(tempVal  >> 8);
+
+    JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(humidVal);
+    JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(humidVal >> 8);
+
+    return JalapenosLppCursor;
 }
 
 uint8_t JalapenosLppAddPAM ( uint8_t channel, int minfluo, int maxfluo, int yield){

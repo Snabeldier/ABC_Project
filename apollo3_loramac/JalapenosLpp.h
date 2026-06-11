@@ -112,7 +112,7 @@ uint8_t JalapenosLppAddSpectral ( uint8_t channel, uint8_t *spectral_data);
 uint8_t JalapenosLppAddDeviceID ( uint32_t deviceID);
 uint8_t JalapenosLppAddPAM ( uint8_t channel, int minfluo, int maxfluo, int yield);
 
-uint8_t JalapenosLppAddTemperatureAndHumidity(int temp, int humid);
+uint8_t JalapenosLppAddTemperatureAndHumidity(float temp, float humid);
 uint8_t JalapenosLppAddDummy ( void );
 uint8_t JalapenosLppAddDummyData ( void );
 
