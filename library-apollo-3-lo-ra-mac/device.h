@@ -24,12 +24,8 @@
 #include "am_util_stdio.h"
 #include "adc.h"
 #include "timing.h"
-#include "shtc3.h"
 #include "am1805.h"
-#include "as7341.h"
 #include "taskHandler.h"
-#include "ina232.h"
-//#include "sht4x_i2c.h"
 
 
 //*****************************************************************************

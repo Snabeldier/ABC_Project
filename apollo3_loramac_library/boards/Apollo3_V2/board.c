@@ -26,6 +26,7 @@
 #include "adc.h"
 #include "spi.h"
 #include "i2c.h"
+#include "timing.h"
 
 #include "timer.h"
 

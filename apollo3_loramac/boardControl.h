@@ -13,11 +13,9 @@
 
 #include <stdint.h>
 #include "am1805.h"
-#include "as7341.h"
 #include "dac63002.h"
 #include "i2c.h"
 #include "spi.h"
-#include "shtc3.h"
 #include "mb85rc64ta.h"
 #include "am_util_delay.h"
 

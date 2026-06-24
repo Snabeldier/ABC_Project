@@ -477,36 +477,6 @@ static void OnSysTimeUpdate(bool isSynchronized, int32_t timeCorrection) {}
 static void OnSysTimeUpdate(void) {}
 #endif
 
-static etError MeasureTempAndHumidity(uint16_t *tempData, uint16_t *humData) {
-	etError error = NO_ERROR;
-//  uint8_t data[6];  // Array to hold data bytes and CRCs
-//  uint8_t expectedCrc;
-
-//  // I2C read sequence
-//  am_devices_iom_shtc3_t *pIom = (am_devices_iom_shtc3_t *)my_IomdevHdl;
-//  if (am_device_command_read(pIom->pIomHandle, 0x44, 0, 0, false, (uint32_t *)data, 6)) {
-//		return ACK_ERROR;  // Error in command read
-//  }
-
-//  // Verify CRC for Temperature
-//  expectedCrc = data[2];  // CRC for first two bytes
-//  if (SHTC3_CheckCrc(data, 2, expectedCrc) != NO_ERROR) {
-//      error |= CHECKSUM_ERROR;
-//  } else {
-//      *tempData = (data[0] << 8) | data[1];  // Combine bytes into a 16-bit value
-//  }
-
-//  // Verify CRC for Humidity
-//  expectedCrc = data[5];  // CRC for next two bytes
-//  if (SHTC3_CheckCrc(&data[3], 2, expectedCrc) != NO_ERROR) {
-//      error |= CHECKSUM_ERROR;
-//  } else {
-//      *humData = (data[3] << 8) | data[4];  // Combine bytes into a 16-bit value
-//  }
-
-  return error;
-}
-
 /*!
  * Sample timer event. Runs in ISR context: only flag a sample and rearm so the
  * sampling runs continuously for the whole session.

@@ -22,15 +22,10 @@
 #include "spi.h"
 #include "dac63002.h"
 #include "am1805.h"
-#include "shtc3.h"
-#include "as7341.h"
 #include "timing.h"
 #include "am_util_delay.h"
 //#include "adc.h"
 #include "am_util_stdio.h"
-#include "PamMeasurements.h"
-#include "sht4.h"
-//#include "sht4x_i2c.h"
 
 
 #define NUMBER_SEND 						67
@@ -208,57 +203,5 @@ typedef struct
 		float basic_tint;
 
 }MeasurementBasic_t;
-	
-/*
- *	@brief Initializes the I/O for measurements using the AS7341
- *
- *	@return 0 on success
- */
-uint32_t initSpecMeasurement(void);
 
-
-/*
- *	@brief Function that can be called to execute a measurement using the AS7341
- *
- *	@return 0 on success
- */
-uint32_t executeSpecMeasurement(SendData_t *data);
-
-void autogainSpec(as7341_gain_t last_gain, as7341_gain_t *new_gain, uint16_t last_clear);
-
-//changed for ForestTrails
-/*
- *	@brief Function that can be called to execute a measurement using the SHT4x
- * 
- *	@return 0 on success
-*/
-
-uint32_t executeTempMeasurement(SendData_t *data);
-
-//changed for ForestTrails
-/*
- *	@brief Function that can be called to execute a measurement using the SHTC3
- * 
- *	@return 0 on success
-*/
-uint32_t executeTempMeasurement(SendData_t *data);
-
-	
-//*****************************************************************************
-//
-//! @brief Executes the PAR calculation
-//!
-//! @return PAR value
-//*****************************************************************************
-float PARCalc(SendData_t *data);
-
-
-void executePAMMeasurement(SendData_t *data);
-//*****************************************************************************
-//
-//! @brief Executes the sensor measurements
-//!
-//*****************************************************************************
-void measurementProcess(SendData_t *data);
- 
  #endif /* TASKS_TASKHANDLER_H_ */
