@@ -501,6 +501,28 @@ uint8_t JalapenosLppAddPowerMeasurement(float shuntVoltage_mV, float busVoltage_
     return JalapenosLppCursor;
 }
 
+uint8_t JalapenosLppAddCurrentBusArray(const int16_t *current, const int16_t *bus, uint8_t count)
+{
+    if ((JalapenosLppCursor + LPP_POWER_ARRAY_HEADER_SIZE + (uint16_t)count * LPP_POWER_ARRAY_SAMPLE_SIZE) > Jalapenos_LPP_MAXBUFFER_SIZE)
+        return 0;
+
+    /* Number of samples that follow */
+    JalapenosLppBuffer[JalapenosLppCursor++] = count;
+
+    /* Per sample: current (0.1 mA/LSB), bus voltage (1 mV/LSB).
+     * Each value as signed 16-bit, little-endian (LSB first). */
+    for (uint8_t i = 0; i < count; i++)
+    {
+        JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(current[i]);
+        JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(current[i] >> 8);
+
+        JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(bus[i]);
+        JalapenosLppBuffer[JalapenosLppCursor++] = (uint8_t)(bus[i] >> 8);
+    }
+
+    return JalapenosLppCursor;
+}
+
 uint8_t JalapenosLppAddCapVoltage ( uint8_t channel, float CapVoltage){
 
 	

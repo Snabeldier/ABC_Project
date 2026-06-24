@@ -79,6 +79,8 @@ extern "C" {
 #define LPP_CURRENT_SIZE							6
 #define LPP_CAPVOLTAGE_SIZE						6
 #define LPP_POWER_MEASUREMENT_SIZE		6   /* shuntVoltage(int16) + busVoltage(uint16) + current(int16) */
+#define LPP_POWER_ARRAY_HEADER_SIZE		1   /* sample count byte preceding the samples */
+#define LPP_POWER_ARRAY_SAMPLE_SIZE		4   /* per sample: current(int16) + bus(int16)  */
 
 
 union analogVal
@@ -126,6 +128,13 @@ uint8_t JalapenosLppAddCapVoltage ( uint8_t channel, float CapVoltage);
 /* Compact INA219 payload: shuntVoltage (0.01 mV), busVoltage (1 mV), current (1 uA).
  * All stored little-endian as signed 16-bit integers. */
 uint8_t JalapenosLppAddPowerMeasurement(float shuntVoltage_mV, float busVoltage_V, float current_uA);
+
+/* Power array: 1 count byte followed by <count> samples. Each sample is two
+ * signed 16-bit little-endian values in this order:
+ *   current (0.1 mA/LSB), bus voltage (1 mV/LSB).
+ * Used for both the sleep/baseline trace and the TX-burst trace. A count of 0
+ * means no data is available yet (e.g. first uplink of a session). */
+uint8_t JalapenosLppAddCurrentBusArray(const int16_t *current, const int16_t *bus, uint8_t count);
 
 #ifdef __cplusplus
 }
