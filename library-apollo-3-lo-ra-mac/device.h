@@ -18,7 +18,6 @@
 #include "am_mcu_apollo.h"
 #include "pins.h"
 #include "gpio.h"
-#include "dac63002.h"
 #include "mb85rc64ta.h"
 #include "arm_math.h"
 #include "am_util_stdio.h"

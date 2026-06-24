@@ -585,11 +585,6 @@
               <FilePath>..\library-apollo-3-lo-ra-mac\am1805.c</FilePath>
             </File>
             <File>
-              <FileName>dac63002.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\dac63002.c</FilePath>
-            </File>
-            <File>
               <FileName>device.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\library-apollo-3-lo-ra-mac\device.c</FilePath>
@@ -648,11 +643,6 @@
               <FileName>am1805.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\library-apollo-3-lo-ra-mac\am1805.h</FilePath>
-            </File>
-            <File>
-              <FileName>dac63002.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\dac63002.h</FilePath>
             </File>
             <File>
               <FileName>device.h</FileName>

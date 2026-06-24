@@ -20,7 +20,6 @@
 #include "mb85rc64ta.h"
 #include "i2c.h"
 #include "spi.h"
-#include "dac63002.h"
 #include "am1805.h"
 #include "timing.h"
 #include "am_util_delay.h"

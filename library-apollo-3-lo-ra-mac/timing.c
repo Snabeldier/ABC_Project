@@ -121,7 +121,7 @@ void delay_init_xtal_one_shot(void)
 void my_delay_ms_xtal(uint32_t ms)
 {
     //
-    // Each tick of the 32.768 kHz crystal = 1 / 32768 s ?? 30.5 |¨¬s
+    // Each tick of the 32.768 kHz crystal = 1 / 32768 s ?? 30.5 |ï¿½ï¿½s
     // For 1 ms, that's about 32.768 ticks.
     // We'll do a 64-bit multiply to avoid overflow on large ms.
     //
@@ -226,12 +226,10 @@ void am_stimer_cmpr0_isr(){
     am_hal_stimer_compare_delta_set(0, interval);
 	if(pin){
 		pin = 0;
-		am_devices_dac63002_1_set_output(0x0000);
 		//am_util_stdio_printf("Turn off");
 	}
 	else{
 		pin = 1;
-		am_devices_dac63002_1_set_output(dacdata);
 		//am_util_stdio_printf("Turn on");
 	}
 	
@@ -252,7 +250,6 @@ void am_stimer_cmpr5_isr(){
 	NVIC_DisableIRQ(STIMER_CMPR0_IRQn);
 	am_hal_stimer_int_disable(AM_HAL_STIMER_INT_COMPAREA);
 	am_hal_stimer_int_disable(AM_HAL_STIMER_INT_COMPAREF);
-	am_devices_dac63002_1_set_output(0x0000);
 	dacdata = 0;
 }
 

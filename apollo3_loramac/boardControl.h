@@ -13,7 +13,6 @@
 
 #include <stdint.h>
 #include "am1805.h"
-#include "dac63002.h"
 #include "i2c.h"
 #include "spi.h"
 #include "mb85rc64ta.h"

@@ -30,8 +30,11 @@ extern "C"
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "math.h"
 #include "timer.h"
 #include "boardControl.h"
+#include "pins.h"
+#include "gpio.h"
 
 
 /*!
@@ -61,7 +64,7 @@ extern "C"
 #define TM_SECONDS_IN_1HOUR							360000U		//seconds in 1 hour in ticks (*100)
 #define TM_SECONDS_IN_1MINUTE						6000U		//seconds in 1 minute in ticks (*100)
 
-#define MIN_ALARM_DELAY 							1		//the alarm setting routine required 14µs
+#define MIN_ALARM_DELAY 							1		//the alarm setting routine required 14ï¿½s
 
 typedef struct
 {

@@ -200,10 +200,8 @@ uint32_t boardTest(void){
 	dataBuffer[2] = 0x77;
 	dataBuffer[3] = 0x11;
 	i += am_devices_am1805_read_id(&deviceID);
-	i += am_devices_dac63002_read_id(&deviceID);
 	i += am_devices_mb85rc64ta_blocking_write(&dataBuffer[0],0,4);
 	i += am_devices_mb85rc64ta_blocking_read(&readBuffer[0],0,4);
-	i += am_devices_dac63002_1_set_output(0xAAA0);
 	i += turnOffI2C();
 	return i;
 }
