@@ -289,6 +289,13 @@ void SX126xSetFs( void )
     SX126xSetOperatingMode( MODE_FS );
 }
 
+static RadioTxStartedHandler *TxStartedCallback = NULL;
+
+void SX126xSetTxStartedCallback( RadioTxStartedHandler *handler )
+{
+    TxStartedCallback = handler;
+}
+
 void SX126xSetTx( uint32_t timeout )
 {
     uint8_t buf[3];
@@ -299,6 +306,13 @@ void SX126xSetTx( uint32_t timeout )
     buf[1] = ( uint8_t )( ( timeout >> 8 ) & 0xFF );
     buf[2] = ( uint8_t )( timeout & 0xFF );
     SX126xWriteCommand( RADIO_SET_TX, buf, 3 );
+
+    // The SX1262 is now transmitting autonomously. Hand control to the app so it
+    // can sample the supply current and capture the TX peak during the airtime.
+    if( TxStartedCallback != NULL )
+    {
+        TxStartedCallback( );
+    }
 }
 
 void SX126xSetRx( uint32_t timeout )

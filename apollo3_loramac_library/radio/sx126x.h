@@ -870,6 +870,21 @@ void SX126xSetFs( void );
 void SX126xSetTx( uint32_t timeout );
 
 /*!
+ * \brief Callback type invoked right after the radio has been told to transmit
+ *        (i.e. the SX1262 is now sending autonomously). Used to start a fast
+ *        current-measurement burst that captures the TX peak.
+ */
+typedef void ( RadioTxStartedHandler )( void );
+
+/*!
+ * \brief Registers a callback that is called at the start of every transmission,
+ *        right after the RADIO_SET_TX command has been issued.
+ *
+ * \param [in] handler  Callback to invoke, or NULL to disable.
+ */
+void SX126xSetTxStartedCallback( RadioTxStartedHandler *handler );
+
+/*!
  * \brief Sets the radio in reception mode
  *
  * \param [in]  timeout       Structure describing the reception timeout value
