@@ -23,15 +23,10 @@
 #define WAKE_INTERVAL_IN_MS 1
 #define XT_PERIOD 32768
 #define HFRC_PERIOD 3000000
-//#define WAKE_INTERVAL XT_PERIOD * WAKE_INTERVAL_IN_MS * 1e-3
-
-//#define WAKE_INTERVAL_IN_US 350
-//#define WAKE_INTERVAL XT_PERIOD * WAKE_INTERVAL_IN_US * 1e-6
 
 //***** Functions *************************************************************
 int pin = 0;
 int wait = 0;
-extern uint8_t PAM_phase;
 uint32_t interval;
 uint16_t dacdata = 0xFFA0;	//if not other defined generate around 800mV
 
@@ -65,7 +60,6 @@ void myTimerInit(uint8_t state){
 	////am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ | AM_HAL_STIMER_CFG_COMPARE_A_ENABLE);
 	am_hal_stimer_config(AM_HAL_STIMER_HFRC_3MHZ | AM_HAL_STIMER_CFG_COMPARE_A_ENABLE | AM_HAL_STIMER_CFG_COMPARE_F_ENABLE);
 	//am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ | AM_HAL_STIMER_CFG_COMPARE_A_ENABLE | AM_HAL_STIMER_CFG_COMPARE_F_ENABLE);
-	PAM_phase = 1;	//PAM started
 	pin = 1;
 }
 
@@ -260,7 +254,6 @@ void am_stimer_cmpr5_isr(){
 	am_hal_stimer_int_disable(AM_HAL_STIMER_INT_COMPAREF);
 	am_devices_dac63002_1_set_output(0x0000);
 	dacdata = 0;
-	PAM_phase = 2;
 }
 
 void am_ctimer_isr(){

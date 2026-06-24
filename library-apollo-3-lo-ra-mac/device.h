@@ -39,9 +39,6 @@
 //*****************************************************************************
 #define LEN 512
 
-//#define PAM_OPTIMIZED
-//#define PAM_DMA
-
 #define B0 -9.8853
 #define B1 0.0046
 #define B2 0.0136
@@ -51,9 +48,6 @@
 #define B6 0.0195
 #define B7 0.0178
 #define B8 -0.0026
-
-
-
 
 //*****************************************************************************
 //
@@ -69,7 +63,7 @@
 //
 //*****************************************************************************
 uint32_t turnOnFram(void);
-	
+
 //*****************************************************************************
 //
 //! @brief Turn the supply for FRAM off & return whether it was successful or not
@@ -99,69 +93,6 @@ uint32_t turnOffI2C(void);
 
 //*****************************************************************************
 //
-//! @brief Turn on the supply for DAC & return whether it was successful or not
-//!
-//! @return 32-bit success
-//
-//*****************************************************************************
-uint32_t turnOnDAC(void);
-	
-//*****************************************************************************
-//
-//! @brief Turn the supply for DAC off & return whether it was successful or not
-//!
-//! @return 32-bit success
-//
-//*****************************************************************************
-uint32_t turnOffDAC(void);
-
-//*****************************************************************************
-//
-//! @brief Turn on the supply for AS7341 & return whether it was successful or not
-//!
-//! @return 32-bit success
-//
-//*****************************************************************************
-uint32_t turnOnPARLAI(void);
-	
-//*****************************************************************************
-//
-//! @brief Turn the supply for AS7341 off & return whether it was successful or not
-//!
-//! @return 32-bit success
-//
-//*****************************************************************************
-uint32_t turnOffPARLAI(void);
-
-//*****************************************************************************
-//
-/*//! @brief Turn on the supply for SHT4x & return whether it was successful or not
-//!
-//! @return 32-bit success
-//
-//*****************************************************************************
-uint32_t turnOnTemp(void);*/
-// Changed for ForestTrials
-//*****************************************************************************
-//
-//! @brief Turn on the supply for SHTC3 & return whether it was successful or not
-//!
-//! @return 32-bit success
-//
-//*****************************************************************************
-uint32_t turnOnTemp(void);
-
-//*****************************************************************************
-//
-//! @brief Turn the supply for SHTC3 off & return whether it was successful or not
-//!
-//! @return 32-bit success
-//
-//*****************************************************************************
-uint32_t turnOffTemp(void);
-
-//*****************************************************************************
-//
 //! @brief Turn on the supply for voltage divider & return whether it was successful or not
 //!
 //! @return 32-bit success
@@ -177,24 +108,6 @@ uint32_t turnOnVDiv(void);
 //
 //*****************************************************************************
 uint32_t turnOffVDiv(void);
-
-//*****************************************************************************
-//
-//! @brief Turn on the supply for INA234 & return whether it was successful or not
-//!
-//! @return 32-bit success
-//
-//*****************************************************************************
-uint32_t turnOnPWRSensor(void);
-	
-//*****************************************************************************
-//
-//! @brief Turn the supply for INA234 off & return whether it was successful or not
-//!
-//! @return 32-bit success
-//
-//*****************************************************************************
-uint32_t turnOffPWRSensor(void);
 
 //*****************************************************************************
 //
@@ -216,24 +129,6 @@ uint32_t turnOffLoRa(void);
 
 //*****************************************************************************
 //
-//! @brief Turn on the supply for PAM & return whether it was successful or not
-//!
-//! @return 32-bit success
-//
-//*****************************************************************************
-uint32_t turnOnPAM(void);
-	
-//*****************************************************************************
-//
-//! @brief Turn the supply for PAM off & return whether it was successful or not
-//!
-//! @return 32-bit success
-//
-//*****************************************************************************
-uint32_t turnOffPAM(void);
-
-//*****************************************************************************
-//
 //! @brief Turn on the supply for 3.3V & return whether it was successful or not
 //!
 //! @return 32-bit success
@@ -249,13 +144,6 @@ uint32_t turnOn33(void);
 //
 //*****************************************************************************
 uint32_t turnOff33(void);
-//*****************************************************************************
-//
-//! @brief Initializes the DAC to output a voltage
-//!
-//! @return 32-bit success
-//*****************************************************************************
-uint32_t initDAC();
 
 //*****************************************************************************
 //
@@ -265,16 +153,6 @@ uint32_t initDAC();
 //! @return 32-bit error marker
 //*****************************************************************************
 uint32_t boardTest(void);
-
-
-//*****************************************************************************
-//
-//! @brief Executes temperature/humidity measurement: used for final testing
-//!		   
-//!
-//! @return 32-bit error marker
-//*****************************************************************************
-uint32_t TempHumid_Meas_run(void);
 
 
 //*****************************************************************************
@@ -308,18 +186,5 @@ uint32_t sleep_half_mem(void);
 //! @return 32-bit error marker
 //*****************************************************************************
 uint32_t deep_sleep_half_mem(void);
-
-
-
-uint32_t getAdcTempMeasure(void);
-
-//*****************************************************************************
-//
-//! @brief Enables power for all sensors and initializes the AS7341 & INA232
-//!		   
-//!
-//! @return 32-bit error marker
-//*****************************************************************************
-uint32_t prepareSensing(void);
 
 #endif
