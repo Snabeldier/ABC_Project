@@ -79,3 +79,6 @@ JLink*
 
 # To explicitly override the above, define any exceptions here; e.g.:
 # !my_customized_scatter_file.sct
+
+# Track the main Keil project file (file list + build settings)
+!ApolloLoraMac.uvprojx
