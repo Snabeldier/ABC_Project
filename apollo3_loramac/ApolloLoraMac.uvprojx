@@ -567,7 +567,7 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>hardware Library</GroupName>
+          <GroupName>Application</GroupName>
           <Files>
             <File>
               <FileName>periodicUplink.c</FileName>
@@ -575,39 +575,9 @@
               <FilePath>.\periodicUplink.c</FilePath>
             </File>
             <File>
-              <FileName>timing.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\timing.c</FilePath>
-            </File>
-            <File>
-              <FileName>am1805.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\am1805.c</FilePath>
-            </File>
-            <File>
-              <FileName>device.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\device.c</FilePath>
-            </File>
-            <File>
-              <FileName>gpio.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\gpio.c</FilePath>
-            </File>
-            <File>
-              <FileName>i2c.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\i2c.c</FilePath>
-            </File>
-            <File>
-              <FileName>spi.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\spi.c</FilePath>
-            </File>
-            <File>
-              <FileName>mb85rc64ta.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\mb85rc64ta.c</FilePath>
+              <FileName>periodicUplink.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\periodicUplink.h</FilePath>
             </File>
             <File>
               <FileName>taskhandler.c</FileName>
@@ -615,39 +585,19 @@
               <FilePath>..\library-apollo-3-lo-ra-mac\taskhandler.c</FilePath>
             </File>
             <File>
-              <FileName>sht3x.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\sht3x.c</FilePath>
-            </File>
-            <File>
-              <FileName>ina219.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\ina219.c</FilePath>
+              <FileName>taskHandler.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\taskHandler.h</FilePath>
             </File>
           </Files>
         </Group>
         <Group>
-          <GroupName>hardware Lib</GroupName>
+          <GroupName>Drivers</GroupName>
           <Files>
             <File>
-              <FileName>periodicUplink.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\periodicUplink.h</FilePath>
-            </File>
-            <File>
-              <FileName>timing.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\timing.h</FilePath>
-            </File>
-            <File>
-              <FileName>am1805.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\am1805.h</FilePath>
-            </File>
-            <File>
-              <FileName>device.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\device.h</FilePath>
+              <FileName>gpio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\gpio.c</FilePath>
             </File>
             <File>
               <FileName>gpio.h</FileName>
@@ -655,9 +605,19 @@
               <FilePath>..\library-apollo-3-lo-ra-mac\gpio.h</FilePath>
             </File>
             <File>
+              <FileName>i2c.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\i2c.c</FilePath>
+            </File>
+            <File>
               <FileName>i2c.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\library-apollo-3-lo-ra-mac\i2c.h</FilePath>
+            </File>
+            <File>
+              <FileName>spi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\spi.c</FilePath>
             </File>
             <File>
               <FileName>spi.h</FileName>
@@ -665,24 +625,39 @@
               <FilePath>..\library-apollo-3-lo-ra-mac\spi.h</FilePath>
             </File>
             <File>
-              <FileName>mb85rc64ta.h</FileName>
+              <FileName>timing.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\timing.c</FilePath>
+            </File>
+            <File>
+              <FileName>timing.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\mb85rc64ta.h</FilePath>
+              <FilePath>..\library-apollo-3-lo-ra-mac\timing.h</FilePath>
+            </File>
+            <File>
+              <FileName>device.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\device.c</FilePath>
+            </File>
+            <File>
+              <FileName>device.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\device.h</FilePath>
             </File>
             <File>
               <FileName>pins.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\library-apollo-3-lo-ra-mac\pins.h</FilePath>
             </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Sensors &amp; Storage</GroupName>
+          <Files>
             <File>
-              <FileName>rtc.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\rtc.h</FilePath>
-            </File>
-            <File>
-              <FileName>taskHandler.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\taskHandler.h</FilePath>
+              <FileName>sht3x.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\sht3x.c</FilePath>
             </File>
             <File>
               <FileName>sht3x.h</FileName>
@@ -690,9 +665,39 @@
               <FilePath>.\sht3x.h</FilePath>
             </File>
             <File>
+              <FileName>ina219.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\ina219.c</FilePath>
+            </File>
+            <File>
               <FileName>ina219.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\ina219.h</FilePath>
+            </File>
+            <File>
+              <FileName>am1805.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\am1805.c</FilePath>
+            </File>
+            <File>
+              <FileName>am1805.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\am1805.h</FilePath>
+            </File>
+            <File>
+              <FileName>mb85rc64ta.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\mb85rc64ta.c</FilePath>
+            </File>
+            <File>
+              <FileName>mb85rc64ta.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\mb85rc64ta.h</FilePath>
+            </File>
+            <File>
+              <FileName>rtc.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\library-apollo-3-lo-ra-mac\rtc.h</FilePath>
             </File>
           </Files>
         </Group>
