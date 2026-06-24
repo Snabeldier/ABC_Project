@@ -10,8 +10,8 @@
  *          3. Call INA219_GetMeasurements() to read shunt voltage, bus voltage,
  *             and current.
  *
- * \note    Shunt resistor: 100 Ohm. Max measurable current: +-3.2 mA.
- *          Current LSB = 1 uA. Bus voltage range: 0-32 V.
+ * \note    Shunt resistor: 0.1 Ohm (marking "R100"). Max measurable current:
+ *          +-3.2 A. Current LSB = 100 uA. Bus voltage range: 0-32 V.
  ******************************************************************************/
 
 #include "ina219.h"
