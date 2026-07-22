@@ -37,6 +37,7 @@
 #include "secure-element-nvm.h"
 #include "se-identity.h"
 #include "soft-se-hal.h"
+#include "deviceConfig.h" // per-node identity/keys, selected via Apollo3 chip ID
 
 static SecureElementNvmData_t* SeNvm;
 
@@ -153,6 +154,36 @@ SecureElementStatus_t SecureElementInit( SecureElementNvmData_t* nvm )
 
     // Initialize data
     memcpy1( ( uint8_t* )SeNvm, ( uint8_t* )&seNvmInit, sizeof( seNvmInit ) );
+
+    // Both nodes run the same image: overwrite the node-specific identity and
+    // ABP session keys with the values of the board we are running on
+    // (selected via the Apollo3 unique chip ID, see deviceConfig.c).
+    {
+        const DeviceConfig_t* cfg = DeviceConfigGet( );
+
+        memcpy1( SeNvm->DevEui, ( uint8_t* )cfg->DevEui, SE_EUI_SIZE );
+
+        for( uint8_t i = 0; i < NUM_OF_KEYS; i++ )
+        {
+            switch( SeNvm->KeyList[i].KeyID )
+            {
+                case F_NWK_S_INT_KEY:
+                    memcpy1( SeNvm->KeyList[i].KeyValue, ( uint8_t* )cfg->FNwkSIntKey, SE_KEY_SIZE );
+                    break;
+                case S_NWK_S_INT_KEY:
+                    memcpy1( SeNvm->KeyList[i].KeyValue, ( uint8_t* )cfg->SNwkSIntKey, SE_KEY_SIZE );
+                    break;
+                case NWK_S_ENC_KEY:
+                    memcpy1( SeNvm->KeyList[i].KeyValue, ( uint8_t* )cfg->NwkSEncKey, SE_KEY_SIZE );
+                    break;
+                case APP_S_KEY:
+                    memcpy1( SeNvm->KeyList[i].KeyValue, ( uint8_t* )cfg->AppSKey, SE_KEY_SIZE );
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
 
 #if !defined( SECURE_ELEMENT_PRE_PROVISIONED )
 #if( STATIC_DEVICE_EUI == 0 )

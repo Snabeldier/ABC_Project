@@ -31,6 +31,7 @@
 
 #include "sht3x.h"
 #include "ina219.h"
+#include "deviceConfig.h"
 
 /*!
  * LoRaWAN default end-device class
@@ -151,6 +152,21 @@ static bool AppLedStateOn = false;
  * Timer to handle the application data transmission duty cycle
  */
 static TimerEvent_t TxTimer;
+
+/*!
+ * Green LED (pin 38, configured as output in main.c): pulsed briefly whenever
+ * an uplink is started. The one-shot LedTimer turns it off again so the pulse
+ * does not block the MAC processing.
+ */
+#define GREEN_LED_PIN 38
+#define LED_PULSE_MS  100
+
+static TimerEvent_t LedTimer;
+
+static void OnLedTimerEvent(void * context) {
+  TimerStop( & LedTimer);
+  am_hal_gpio_state_write(GREEN_LED_PIN, AM_HAL_GPIO_OUTPUT_CLEAR);
+}
 
 /*!
  * Ring buffer of captured samples (STIMER tick timestamp + INA219 readings).
@@ -312,6 +328,17 @@ void periodicUplink(void) {
     appVersion, &
     gitHubVersion);
 
+  // Show which per-node configuration was selected (see deviceConfig.c). The
+  // ChipID0 value printed here is what goes into the DeviceConfigTable entry.
+  {
+    am_hal_mcuctrl_device_t device;
+    am_hal_mcuctrl_info_get(AM_HAL_MCUCTRL_INFO_DEVICEID, &device);
+    am_util_stdio_printf("[INFO] ChipID0 = 0x%08X, DeviceID = %u, DevAddr = 0x%08X\n",
+                         device.ui32ChipID0,
+                         (unsigned int)DeviceConfigGet()->PayloadDeviceId,
+                         DeviceConfigGet()->DevAddr);
+  }
+
   if (LmHandlerInit( & LmHandlerCallbacks, & LmHandlerParams) != LORAMAC_HANDLER_SUCCESS) {
     am_util_stdio_printf("LoRaMac wasn't properly initialized\n");
     // Fatal error, endless loop.
@@ -336,6 +363,10 @@ void periodicUplink(void) {
   // of the LoRaMac RTC. Not used elsewhere in this build.
   am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE);
   am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ);
+
+  // One-shot timer that ends the green LED uplink pulse.
+  TimerInit( & LedTimer, OnLedTimerEvent);
+  TimerSetValue( & LedTimer, LED_PULSE_MS);
 
   // Initialise the INA219 and start the continuous sampling into the ring
   // buffer. SampleProcess() reads one sample per SampleTimer tick.
@@ -605,7 +636,7 @@ static void PrepareTxFrame(void) {
 
   AppData2.Port = LORAWAN_APP_PORT;
   JalapenosLppReset();
-  JalapenosLppAddDeviceID(34000);
+  JalapenosLppAddDeviceID(DeviceConfigGet()->PayloadDeviceId);
 
 	float temp;
 	float hum;
@@ -628,6 +659,11 @@ static void PrepareTxFrame(void) {
   // Record the chip time of the transmission so the JSON can mark where the TX
   // (and thus the current peak) sits within the captured window.
   TxTicks = am_hal_stimer_counter_get();
+
+  // Signal the started uplink with a short green LED pulse (turned off again
+  // by OnLedTimerEvent).
+  am_hal_gpio_state_write(GREEN_LED_PIN, AM_HAL_GPIO_OUTPUT_SET);
+  TimerStart( & LedTimer);
 
   LmHandlerSend( & AppData2, LmHandlerParams.IsTxConfirmed);
 }

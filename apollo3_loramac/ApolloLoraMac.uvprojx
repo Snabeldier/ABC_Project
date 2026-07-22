@@ -580,6 +580,16 @@
               <FilePath>.\periodicUplink.h</FilePath>
             </File>
             <File>
+              <FileName>deviceConfig.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\deviceConfig.c</FilePath>
+            </File>
+            <File>
+              <FileName>deviceConfig.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\deviceConfig.h</FilePath>
+            </File>
+            <File>
               <FileName>taskhandler.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\library-apollo-3-lo-ra-mac\taskhandler.c</FilePath>

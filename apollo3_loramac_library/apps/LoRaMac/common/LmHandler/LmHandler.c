@@ -38,6 +38,7 @@
 #include "LmhpFragmentation.h"
 
 #include "LoRaMacTest.h"
+#include "deviceConfig.h" // per-node identity/keys, selected via Apollo3 chip ID
 #define LOAD_FROM_NVM 0   //Added by Yaswanth
 
 static CommissioningParams_t CommissioningParams =
@@ -249,6 +250,11 @@ LmHandlerErrorStatus_t LmHandlerInit( LmHandlerCallbacks_t *handlerCallbacks,
     MibRequestConfirm_t mibReq;
     LmHandlerParams = handlerParams;
     LmHandlerCallbacks = handlerCallbacks;
+
+    // Both nodes run the same image: use the DevAddr of the board we are
+    // running on (selected via the Apollo3 unique chip ID, see deviceConfig.c)
+    // instead of the compile-time LORAWAN_DEVICE_ADDRESS.
+    CommissioningParams.DevAddr = DeviceConfigGet( )->DevAddr;
 
     LoRaMacPrimitives.MacMcpsConfirm = McpsConfirm;
     LoRaMacPrimitives.MacMcpsIndication = McpsIndication;
