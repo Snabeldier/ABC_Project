@@ -154,18 +154,24 @@ static bool AppLedStateOn = false;
 static TimerEvent_t TxTimer;
 
 /*!
- * Green LED (pin 38, configured as output in main.c): pulsed briefly whenever
+ * Red LED (pin 37, configured as output in main.c): pulsed briefly whenever
  * an uplink is started. The one-shot LedTimer turns it off again so the pulse
  * does not block the MAC processing.
  */
+#define RED_LED_PIN  37
+#define LED_PULSE_MS 100
+
+/*!
+ * Green LED (pin 38, configured as output in main.c): switched on/off by a
+ * downlink on port 1 or 2 (payload byte 0, bit 0).
+ */
 #define GREEN_LED_PIN 38
-#define LED_PULSE_MS  100
 
 static TimerEvent_t LedTimer;
 
 static void OnLedTimerEvent(void * context) {
   TimerStop( & LedTimer);
-  am_hal_gpio_state_write(GREEN_LED_PIN, AM_HAL_GPIO_OUTPUT_CLEAR);
+  am_hal_gpio_state_write(RED_LED_PIN, AM_HAL_GPIO_OUTPUT_CLEAR);
 }
 
 /*!
@@ -348,6 +354,11 @@ void periodicUplink(void) {
   // Set system maximum tolerated rx error in milliseconds
   LmHandlerSetSystemMaxRxError(25);
 
+  // ABP: the RX window delays are never negotiated with the network (no join
+  // accept). The TTN live data shows this session schedules downlinks with
+  // rx1_delay = 1 s, which matches the LoRaMac regional default (RX1 1 s,
+  // RX2 2 s) -- so the defaults are kept as they are.
+
   // The LoRa-Alliance Compliance protocol package should always be
   // initialized and activated.
   LmHandlerPackageRegister(PACKAGE_ID_COMPLIANCE, & LmhpComplianceParams);
@@ -463,7 +474,11 @@ static void OnRxData(LmHandlerAppData_t * appData, LmHandlerRxParams_t * params)
   switch (appData -> Port) {
   case 1: // The application LED can be controlled on port 1 or 2
   case LORAWAN_APP_PORT: {
-    AppLedStateOn = appData -> Buffer[0] & 0x01;
+    if (appData -> BufferSize > 0) {
+      AppLedStateOn = appData -> Buffer[0] & 0x01;
+      am_hal_gpio_state_write(GREEN_LED_PIN, AppLedStateOn ? AM_HAL_GPIO_OUTPUT_SET
+                                                           : AM_HAL_GPIO_OUTPUT_CLEAR);
+    }
   }
   break;
   default:
@@ -660,9 +675,9 @@ static void PrepareTxFrame(void) {
   // (and thus the current peak) sits within the captured window.
   TxTicks = am_hal_stimer_counter_get();
 
-  // Signal the started uplink with a short green LED pulse (turned off again
+  // Signal the started uplink with a short red LED pulse (turned off again
   // by OnLedTimerEvent).
-  am_hal_gpio_state_write(GREEN_LED_PIN, AM_HAL_GPIO_OUTPUT_SET);
+  am_hal_gpio_state_write(RED_LED_PIN, AM_HAL_GPIO_OUTPUT_SET);
   TimerStart( & LedTimer);
 
   LmHandlerSend( & AppData2, LmHandlerParams.IsTxConfirmed);
