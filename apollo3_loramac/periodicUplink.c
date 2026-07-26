@@ -469,10 +469,12 @@ static void OnJoinRequest(LmHandlerJoinParams_t * params) {
   }
 }
 
+// Nur ein Debug. OnTxData() wird automatisch nach dem TX-Cycle aufgerufen. DisplayTxUpdate sendet dann einen debug an die serielle Schnittstelle
 static void OnTxData(LmHandlerTxParams_t * params) {
   DisplayTxUpdate(params);
 }
 
+// Wird automatisch aufgerufen, sobald ein RX empfangen wurde.
 static void OnRxData(LmHandlerAppData_t * appData, LmHandlerRxParams_t * params) {
   DisplayRxUpdate(appData, params);
 

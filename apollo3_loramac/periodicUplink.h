@@ -37,7 +37,6 @@
 #include "NvmDataMgmt.h"
 #include "LmHandler.h"
 #include "LmhpCompliance.h"
-//#include "CayenneLpp.h"
 #include "JalapenosLpp.h"
 #include "LmHandlerMsgDisplay.h"
 
@@ -52,7 +51,5 @@
 
 
 extern volatile bool requireTimeRequest;
-
-
 
 void periodicUplink(void);

@@ -66,7 +66,7 @@ int main(void) {
 	
 	// Enable console prints
   enable_printf();
-  am_util_stdio_printf("Ecosense Vegetation 2025");
+  am_util_stdio_printf("Bachelorprojekt Vincent Boch 2026");
 	
 	am_hal_gpio_pinconfig(37, g_AM_HAL_GPIO_OUTPUT); // Configure D1 to be an output pin (red led)
 	am_hal_gpio_pinconfig(38, g_AM_HAL_GPIO_OUTPUT); // Configure D2 to be an output pin (green led)

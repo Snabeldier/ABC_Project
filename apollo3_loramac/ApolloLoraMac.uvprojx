@@ -1179,7 +1179,7 @@
               <FileType>5</FileType>
               <FilePath>.\JalapenosLpp.h</FilePath>
             </File>
-<File>
+            <File>
               <FileName>cli.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\apollo3_loramac_library\apps\LoRaMac\common\cli.c</FilePath>
