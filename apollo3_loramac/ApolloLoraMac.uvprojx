@@ -589,16 +589,6 @@
               <FileType>5</FileType>
               <FilePath>.\deviceConfig.h</FilePath>
             </File>
-            <File>
-              <FileName>taskhandler.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\taskhandler.c</FilePath>
-            </File>
-            <File>
-              <FileName>taskHandler.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\library-apollo-3-lo-ra-mac\taskHandler.h</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>

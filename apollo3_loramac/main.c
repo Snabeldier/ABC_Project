@@ -24,8 +24,6 @@
 
 #include "periodicUplink.h"
 
-#include "taskHandler.h"
-
 // === Hardware Selection ===
 // 1. Go to the Project menu and choose Options for Target 'Target 1' (or press Alt+F7).
 // 2. In the window that opens, go to the C/C++ tab.

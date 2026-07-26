@@ -30,7 +30,6 @@
 #include "transmitConfig.h"
 #include "pins.h"
 #include "am1805.h"
-#include "taskHandler.h"
 
 #include "cli.h"
 #include "Commissioning.h"

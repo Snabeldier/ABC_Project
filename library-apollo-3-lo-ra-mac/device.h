@@ -24,7 +24,6 @@
 #include "adc.h"
 #include "timing.h"
 #include "am1805.h"
-#include "taskHandler.h"
 
 
 //*****************************************************************************
