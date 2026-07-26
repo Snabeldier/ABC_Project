@@ -228,10 +228,14 @@ void RtcStartAlarm( uint32_t timeout ){
     uint16_t rtcAlarmHours = 0;
     uint16_t rtcAlarmDays = 0;
 	am_hal_rtc_time_t alarmTime;
-	
-	RtcSetTimerContext();		//update the timercontext
-	gpioWrite( ADC_SENSOREXTRA2, 1 );
-	
+
+	// The timeout handed in by timer.c is relative to the timer context set by
+	// RtcSetTimerContext() (called from TimerStart/TimerIrqHandler). The context
+	// must NOT be refreshed here: re-basing the alarm on "now" made every alarm
+	// whose timestamp already contained the elapsed time (TimerStart with a
+	// non-empty timer list, i.e. the RX window timers) fire late by the time
+	// elapsed since the last context update -- seconds around an SF12 uplink.
+
 	RtcStopAlarm();
 	rtcAlarmSubSeconds = (timeout%100);	// rest of the convertion to seconds equals the 100ths
 	timeout = (timeout-rtcAlarmSubSeconds)/100;	//convert into seconds, minus the 100ths seconds
@@ -307,7 +311,6 @@ void RtcStartAlarm( uint32_t timeout ){
 	am_hal_rtc_int_enable(AM_HAL_RTC_INT_ALM);
 	am_hal_interrupt_master_enable();
 	NVIC_EnableIRQ(RTC_IRQn);
-	gpioWrite( ADC_SENSOREXTRA2, 0 );
 	am_hal_rtc_alarm_set(&alarmTime,AM_HAL_RTC_ALM_RPT_YR);
 	//am_hal_rtc_int_set(AM_HAL_RTC_INT_ALM);
 }
@@ -333,7 +336,7 @@ uint32_t RtcGetCalendarValue(am_hal_rtc_time_t* currentTime){
 	seconds += currentTime->ui32Minute * SECONDS_IN_1MINUTE;	//add minutes of current hour
 	seconds += currentTime->ui32Second;						//add current seconds
 	
-	calendarValue = seconds*100;	//convert the seconds to timerticks(apollo rtc uses 100 Hz clock)
+	calendarValue = seconds*100 + currentTime->ui32Hundredths;	//convert the seconds to timerticks(apollo rtc uses 100 Hz clock)
 	return calendarValue;
 }
 
@@ -345,9 +348,12 @@ uint32_t RtcGetCalendarValue(am_hal_rtc_time_t* currentTime){
  * \retval seconds Number of seconds elapsed since epoch
  */
 uint32_t RtcGetCalendarTime( uint16_t *milliseconds ){
+	// Use a local time struct: RtcTimerContext.CalenderTime is the alarm base
+	// set by RtcSetTimerContext() and must not be overwritten by getters.
+	am_hal_rtc_time_t now;
 	uint32_t ticks = 0;
-	ticks = RtcGetCalendarValue(&RtcTimerContext.CalenderTime);
-	*milliseconds = ticks * 10;
+	ticks = RtcGetCalendarValue(&now);
+	*milliseconds = (ticks % 100) * 10;
 	return ticks/100;
 }
 
@@ -357,7 +363,8 @@ uint32_t RtcGetCalendarTime( uint16_t *milliseconds ){
  * \retval RTC Timer value
  */
 uint32_t RtcGetTimerValue( void ){
-	return RtcGetCalendarValue(&RtcTimerContext.CalenderTime);
+	am_hal_rtc_time_t now;
+	return RtcGetCalendarValue(&now);
 }
 
 /*!
@@ -366,7 +373,8 @@ uint32_t RtcGetTimerValue( void ){
  * \retval RTC Elapsed time since the last alarm in ticks.
  */
 uint32_t RtcGetTimerElapsedTime( void ){
-	uint32_t calendarValue = ( uint32_t )RtcGetCalendarValue(&RtcTimerContext.CalenderTime);
+	am_hal_rtc_time_t now;
+	uint32_t calendarValue = ( uint32_t )RtcGetCalendarValue(&now);
 	return calendarValue - RtcTimerContext.Time;
 }
 
