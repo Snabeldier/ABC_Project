@@ -27,27 +27,20 @@ extern "C" {
 
 #include <stdint.h>
 
+/* Type codes: each value identifies the sensor type in the binary payload (1 byte before the value).
+ * Codes 0-3 are Cayenne LPP standard (kept for compatibility, unused in this project).
+ * Codes 4-105 are reserved by Cayenne (e.g. 103=barometer, 104=gyroscope) — not used here.
+ * Codes 106-114 are custom JalapenosLpp extensions for sensors not covered by Cayenne.
+ * SIZE constants include all bytes for one entry: 1 (channel) + 1 (type code) + n (value). */
 #define LPP_DIGITAL_INPUT       			0       // 1 byte
 #define LPP_DIGITAL_OUTPUT      			1       // 1 byte
 #define LPP_ANALOG_INPUT        			2       // 2 bytes, 0.01 signed
 #define LPP_ANALOG_OUTPUT       			3       // 2 bytes, 0.01 signed
-#define LPP_LUMINOSITY          			101     // 2 bytes, 1 lux unsigned
-#define LPP_PRESENCE            			102     // 1 byte, 1
-#define LPP_TEMPERATURE         			103     // 4 bytes, 0.1C signed
-#define LPP_RELATIVE_HUMIDITY   			104     // 4 byte, 0.5% unsigned
-#define LPP_PAR												105			// 4 bytes, signed value
 #define LPP_TIMESTAMP									106			// 4 bytes, unsigned date
 #define LPP_SHUNTVOLTAGE							107			// 4 bytes, signed value
 #define LPP_BUSVOLTAGE								108			// 4 bytes, signed value
 #define LPP_CURRENT										109			// 4 bytes, signed value
 #define LPP_CAPVOLTAGE								110			// 4 bytes, signed value
-#define LPP_ACCELEROMETER       			113     // 2 bytes per axis, 0.001G
-#define LPP_BAROMETRIC_PRESSURE 			115     // 2 bytes 0.1 hPa Unsigned
-#define LPP_GYROMETER           			134     // 2 bytes per axis, 0.01 /s
-#define LPP_GPS                 			136     // 3 byte lon/lat 0.0001 , 3 bytes alt 0.01m
-			
-#define LPP_PAM												111			// 4 bytes, signed value
-#define LPP_SPECTRAL									112			// 4 bytes, signed value
 #define LPP_DEVICEID									114			// 3 bytes, signed value
 
 // Data ID + Data Type + Data Size
@@ -55,21 +48,7 @@ extern "C" {
 #define LPP_DIGITAL_OUTPUT_SIZE      	3
 #define LPP_ANALOG_INPUT_SIZE        	6
 #define LPP_ANALOG_OUTPUT_SIZE       	6
-#define LPP_LUMINOSITY_SIZE          	4
-#define LPP_PRESENCE_SIZE            	3
-#if defined(HW_CF_SENSOR)
-	#define LPP_TEMPERATURE_SIZE         	2
-#elif defined(HW_ECOVETTE)
-	#define LPP_TEMPERATURE_SIZE         	6
-#endif
-#define LPP_RELATIVE_HUMIDITY_SIZE   	6
-#define LPP_ACCELEROMETER_SIZE       	8
-#define LPP_BAROMETRIC_PRESSURE_SIZE 	4
-#define LPP_GYROMETER_SIZE           	8
-#define LPP_GPS_SIZE                 	11
-#define LPP_SPECTRAL_SIZE							24
 #define LPP_TEMP_AND_HUMID_SIZE				4
-#define LPP_PAM_SIZE									6
 #define LPP_DEVICEID_SIZE							3
 #define LPP_DUMMY_DATA_SIZE						3
 
@@ -102,21 +81,9 @@ uint8_t JalapenosLppAddDigitalOutput( uint8_t channel, uint8_t value );
 uint8_t JalapenosLppAddAnalogInput( uint8_t channel, float value );
 uint8_t JalapenosLppAddAnalogOutput( uint8_t channel, float value );
 
-uint8_t JalapenosLppAddLuminosity( uint8_t channel, uint16_t lux );
-uint8_t JalapenosLppAddPresence( uint8_t channel, uint8_t value );
-uint8_t JalapenosLppAddTemperature( uint8_t channel, float celsius1,float celsius2, float celsius3 );
-uint8_t JalapenosLppAddRelativeHumidity( uint8_t channel, float rh1, float rh2, float rh3 );
-uint8_t JalapenosLppAddAccelerometer( uint8_t channel, float x, float y, float z );
-uint8_t JalapenosLppAddBarometricPressure( uint8_t channel, float hpa );
-uint8_t JalapenosLppAddGyrometer( uint8_t channel, float x, float y, float z );
-uint8_t JalapenosLppAddGps( uint8_t channel, float latitude, float longitude, float meters );
-
-uint8_t JalapenosLppAddSpectral ( uint8_t channel, uint8_t *spectral_data);
 uint8_t JalapenosLppAddDeviceID ( uint32_t deviceID);
-uint8_t JalapenosLppAddPAM ( uint8_t channel, int minfluo, int maxfluo, int yield);
 
 uint8_t JalapenosLppAddTemperatureAndHumidity(float temp, float humid);
-uint8_t JalapenosLppAddDummy ( void );
 uint8_t JalapenosLppAddDummyData ( void );
 
 uint8_t JalapenosLppAddTimestamp ( uint8_t channel, uint32_t time);
