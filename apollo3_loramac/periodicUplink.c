@@ -44,8 +44,10 @@
  * Defines the application data transmission duty cycle. 5s, value in [ms].
  */
 
-//changing this seems to have no real effect on the TX timing. Next step is to figure out the timing for transmission and receive because thats whats currently missaligned
-//debug and check where the TX timer is set and with what & where this value originates, same for RX
+// The TX/RX timing misalignment observed here was traced to the Apollo3_V2
+// rtc-board.c: RtcGetCalendarValue() dropped the hundredths (1 s timer
+// granularity) and RtcStartAlarm() re-based alarms on "now" instead of the
+// timer context, so the RX windows opened seconds late. Fixed there.
 uint32_t APP_TX_DUTYCYCLE = 2000;
 
 uint32_t fl_meas_ctr = 4;
@@ -351,8 +353,11 @@ void periodicUplink(void) {
     while (1) {}
   }
 
-  // Set system maximum tolerated rx error in milliseconds
-  LmHandlerSetSystemMaxRxError(25);
+  // Set system maximum tolerated rx error in milliseconds. The Apollo3 RTC
+  // timebase has a 10 ms tick (100 Hz), so alarm scheduling and the ms->tick
+  // conversions can each be off by up to one tick; 50 ms keeps the RX windows
+  // wide enough to absorb that.
+  LmHandlerSetSystemMaxRxError(50);
 
   // ABP: the RX window delays are never negotiated with the network (no join
   // accept). The TTN live data shows this session schedules downlinks with
