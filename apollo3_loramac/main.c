@@ -22,8 +22,6 @@
 
 #include "rtc-board.h"
 
-#include "fuota.h"
-
 #include "periodicUplink.h"
 
 #include "taskHandler.h"
