@@ -151,6 +151,11 @@ static LmHandlerAppData_t AppData = {
 static bool AppLedStateOn = false;
 
 /*!
+ * Numeric value last received via downlink on port 2; echoed back in every uplink.
+ */
+static uint8_t AppNumericValue = 0;
+
+/*!
  * Timer to handle the application data transmission duty cycle
  */
 static TimerEvent_t TxTimer;
@@ -479,15 +484,20 @@ static void OnRxData(LmHandlerAppData_t * appData, LmHandlerRxParams_t * params)
   DisplayRxUpdate(appData, params);
 
   switch (appData -> Port) {
-  case 1: // The application LED can be controlled on port 1 or 2
-  case LORAWAN_APP_PORT: {
+  case 1: {
     if (appData -> BufferSize > 0) {
-      AppLedStateOn = appData -> Buffer[0] & 0x01;
+      AppLedStateOn = (appData -> Buffer[0] & 0x01) != 0;
       am_hal_gpio_state_write(GREEN_LED_PIN, AppLedStateOn ? AM_HAL_GPIO_OUTPUT_SET
                                                            : AM_HAL_GPIO_OUTPUT_CLEAR);
     }
+    break;
   }
-  break;
+  case LORAWAN_APP_PORT: {
+    if (appData -> BufferSize > 0) {
+      AppNumericValue = appData -> Buffer[0];
+    }
+    break;
+  }
   default:
     break;
   }
@@ -671,6 +681,7 @@ static void PrepareTxFrame(void) {
 		am_util_stdio_printf("[ERROR] Error while reading sensor data: CHECKSUM_ERROR\n");
 	}
 	JalapenosLppAddTemperatureAndHumidity(temp, hum);
+	JalapenosLppAddLedAndValue(AppLedStateOn ? 1 : 0, AppNumericValue);
 
   // The current/voltage trace is no longer sent over LoRa; it is captured into
   // the ring buffer and dumped as JSON over SWO. The LoRa uplink carries only

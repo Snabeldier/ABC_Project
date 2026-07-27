@@ -287,6 +287,17 @@ uint8_t JalapenosLppAddCurrentBusArray(const int16_t *current, const int16_t *bu
     return JalapenosLppCursor;
 }
 
+uint8_t JalapenosLppAddLedAndValue(uint8_t ledState, uint8_t value)
+{
+    if ((JalapenosLppCursor + LPP_LED_AND_VALUE_SIZE) > Jalapenos_LPP_MAXBUFFER_SIZE)
+        return 0;
+
+    JalapenosLppBuffer[JalapenosLppCursor++] = ledState ? 1 : 0;
+    JalapenosLppBuffer[JalapenosLppCursor++] = value;
+
+    return JalapenosLppCursor;
+}
+
 uint8_t JalapenosLppAddCapVoltage ( uint8_t channel, float CapVoltage){
 
 	

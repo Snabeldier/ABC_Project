@@ -60,6 +60,7 @@ extern "C" {
 #define LPP_POWER_MEASUREMENT_SIZE		6   /* shuntVoltage(int16) + busVoltage(uint16) + current(int16) */
 #define LPP_POWER_ARRAY_HEADER_SIZE		1   /* sample count byte preceding the samples */
 #define LPP_POWER_ARRAY_SAMPLE_SIZE		4   /* per sample: current(int16) + bus(int16)  */
+#define LPP_LED_AND_VALUE_SIZE          2   /* ledState(uint8) + numericValue(uint8) */
 
 
 union analogVal
@@ -102,6 +103,9 @@ uint8_t JalapenosLppAddPowerMeasurement(float shuntVoltage_mV, float busVoltage_
  * Used for both the sleep/baseline trace and the TX-burst trace. A count of 0
  * means no data is available yet (e.g. first uplink of a session). */
 uint8_t JalapenosLppAddCurrentBusArray(const int16_t *current, const int16_t *bus, uint8_t count);
+
+/* Appends LED state (0/1) and numeric value (0-255) as two raw bytes. */
+uint8_t JalapenosLppAddLedAndValue(uint8_t ledState, uint8_t value);
 
 #ifdef __cplusplus
 }
