@@ -695,8 +695,8 @@ static void PrepareTxFrame(void) {
 
   // Signal the started uplink with a short red LED pulse (turned off again
   // by OnLedTimerEvent).
-  am_hal_gpio_state_write(RED_LED_PIN, AM_HAL_GPIO_OUTPUT_SET);
-  TimerStart( & LedTimer);
+  // am_hal_gpio_state_write(RED_LED_PIN, AM_HAL_GPIO_OUTPUT_SET);
+  // TimerStart( & LedTimer);
 
   LmHandlerSend( & AppData2, LmHandlerParams.IsTxConfirmed);
 }
