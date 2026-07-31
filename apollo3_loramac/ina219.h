@@ -26,20 +26,19 @@
 #define INA219_REG_CURRENT          0x04
 #define INA219_REG_CALIBRATION      0x05
 
-/* Config: 32 V bus range, PGA=8 (+-320 mV shunt range), 12-bit ADC, continuous */
-#define INA219_CONFIG_VALUE         0x399F
+/* Config: 32 V bus range, PGA=1 (+-40 mV shunt range), 12-bit ADC, continuous */
+#define INA219_CONFIG_VALUE         0x219F
 
-/* Shunt resistor on this board is 0.1 Ohm (marking "R100").
- * Current_LSB is chosen to match the shunt-ADC resolution:
- *   10 uV (shunt LSB) / 0.1 Ohm = 100 uA per current LSB.
- * Cal = trunc(0.04096 / (Current_LSB * R)) = trunc(0.04096 / (100e-6 * 0.1)) = 4096.
- * Max measurable current at PGA=8: 320 mV / 0.1 Ohm = 3.2 A (enough for LoRa TX peak). */
-#define INA219_CALIBRATION          4096
+/* Shunt resistor on this board is 0.12 Ohm (measured; nominal marking "R100" = 0.1 Ohm).
+ * Current_LSB is chosen to be 100 uA per LSB:
+ * Cal = trunc(0.04096 / (Current_LSB * R)) = trunc(0.04096 / (100e-6 * 0.12)) = 3413.
+ * Max measurable current at PGA=1: 40 mV / 0.12 Ohm = 333 mA (sufficient for LoRa TX peak ~46 mA). */
+#define INA219_CALIBRATION          3413
 
 /* Conversion factors matching the above configuration */
-#define INA219_SHUNT_LSB_UV         10.0f   /* 10 uV per LSB (PGA=8, +-320 mV range) */
+#define INA219_SHUNT_LSB_UV         10.0f   /* 10 uV per LSB (PGA=1, +-40 mV range) */
 #define INA219_BUS_LSB_MV           4.0f    /* 4 mV per LSB */
-#define INA219_CURRENT_LSB_UA       100.0f  /* 100 uA per LSB (Cal=4096, R=0.1 Ohm) */
+#define INA219_CURRENT_LSB_UA       100.0f  /* 100 uA per LSB (Cal=3413, R=0.12 Ohm) */
 
 /******************************************************************************
  * TYPES
