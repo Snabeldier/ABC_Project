@@ -85,12 +85,51 @@ uint32_t fl_meas_ctr = 4;
  */
 #define APP_TX_DUTYCYCLE_RND 1000
 
+/* -------------------------------------------------------------------------
+ * Energy-sweep configuration
+ * -------------------------------------------------------------------------
+ * Iterates every combination of SF (DR_5=SF7 … DR_0=SF12) and TX-power index
+ * (0=16 dBm … 7=2 dBm, 2 dB steps, EU868) with SWEEP_REPS repetitions each.
+ * Each measurement window is SWEEP_MEASURE_MS long, which comfortably covers
+ * the TX burst, RX1 (1 s delay) and RX2 (2 s delay, up to ~4 s window at
+ * SF12), with margin.
+ * Result is the accumulated energy in µJ, printed as JSON over SWO.
+ * ------------------------------------------------------------------------- */
+#define SWEEP_MEASURE_MS   10000
+#define SWEEP_SF_COUNT     6
+#define SWEEP_POW_COUNT    8
+#define SWEEP_REPS         10
+
+/* DR_5 = SF7/125 kHz … DR_0 = SF12/125 kHz (EU868) */
+static const uint8_t kSweepDr[SWEEP_SF_COUNT]     = { DR_5, DR_4, DR_3, DR_2, DR_1, DR_0 };
+static const uint8_t kSweepSf[SWEEP_SF_COUNT]     = {    7,    8,    9,   10,   11,   12 };
+/* TXPower index 0..7 → MaxEIRP - 2*idx dBm (EU868, MaxEIRP = 16 dBm) */
+static const uint8_t kSweepPowIdx[SWEEP_POW_COUNT] = { 0,  1,  2,  3, 4, 5, 6, 7 };
+static const int8_t  kSweepPowDbm[SWEEP_POW_COUNT] = { 16, 14, 12, 10, 8, 6, 4, 2 };
+
+typedef enum {
+    SWEEP_IDLE,
+    SWEEP_WAIT_TX,
+    SWEEP_MEASURING,
+    SWEEP_DONE,
+} SweepState_t;
+
+static SweepState_t     SweepState       = SWEEP_IDLE;
+static uint8_t          SweepSfIdx       = 0;
+static uint8_t          SweepPowStep     = 0;
+static uint8_t          SweepRep         = 0;
+static float            SweepEnergy_uJ   = 0.0f;
+static uint32_t         SweepSampleCount = 0;
+static uint32_t         SweepLastTick    = 0;  /* STIMER tick of previous sample */
+static int32_t          SweepResults[SWEEP_REPS];
+static TimerEvent_t     SweepTimer;
+static volatile uint8_t IsSweepDone      = 0;
+static volatile uint8_t IsTxFramePending = 0;
+
 /*!
- * LoRaWAN Adaptive Data Rate
- *
- * \remark Please note that when ADR is enabled the end-device should be static
+ * LoRaWAN Adaptive Data Rate — disabled so the sweep can fix DR and TX power.
  */
-#define LORAWAN_ADR_STATE LORAMAC_HANDLER_ADR_ON //can change to OFF
+#define LORAWAN_ADR_STATE LORAMAC_HANDLER_ADR_OFF
 
 /*!
  * Default datarate
@@ -102,7 +141,7 @@ uint32_t fl_meas_ctr = 4;
 /*!
  * LoRaWAN confirmed messages
  */
-#define LORAWAN_DEFAULT_CONFIRMED_MSG_STATE LORAMAC_HANDLER_CONFIRMED_MSG
+#define LORAWAN_DEFAULT_CONFIRMED_MSG_STATE LORAMAC_HANDLER_UNCONFIRMED_MSG
 
 /*!
  * User application data buffer size
@@ -110,11 +149,9 @@ uint32_t fl_meas_ctr = 4;
 #define LORAWAN_APP_DATA_BUFFER_MAX_SIZE 242
 
 /*!
- * LoRaWAN ETSI duty cycle control enable/disable
- *
- * \remark Please note that ETSI mandates duty cycled transmissions. Use only for test purposes
+ * Duty cycle enforcement disabled so the sweep can transmit back-to-back.
  */
-#define LORAWAN_DUTYCYCLE_ON true
+#define LORAWAN_DUTYCYCLE_ON false
 
 /*!
  * LoRaWAN application port
@@ -176,9 +213,75 @@ static TimerEvent_t TxTimer;
 
 static TimerEvent_t LedTimer;
 
+static LmHandlerParams_t LmHandlerParams = {
+  .Region = ACTIVE_REGION,
+  .AdrEnable = LORAWAN_ADR_STATE,
+  .IsTxConfirmed = LORAWAN_DEFAULT_CONFIRMED_MSG_STATE,
+  .TxDatarate = LORAWAN_DEFAULT_DATARATE,
+  .PublicNetworkEnable = LORAWAN_PUBLIC_NETWORK,
+  .DutyCycleEnabled = LORAWAN_DUTYCYCLE_ON,
+  .DataBufferMaxSize = LORAWAN_APP_DATA_BUFFER_MAX_SIZE,
+  .DataBuffer = AppDataBuffer,
+  .PingSlotPeriodicity = REGION_COMMON_DEFAULT_PING_SLOT_PERIODICITY,
+};
+
 static void OnLedTimerEvent(void * context) {
   TimerStop( & LedTimer);
   am_hal_gpio_state_write(RED_LED_PIN, AM_HAL_GPIO_OUTPUT_CLEAR);
+}
+
+static void OnSweepTimerEvent(void *context) {
+  TimerStop(&SweepTimer);
+  IsSweepDone = 1;
+}
+
+static void SweepSetMib(void) {
+  LmHandlerParams.TxDatarate = kSweepDr[SweepSfIdx];
+  MibRequestConfirm_t mib;
+  mib.Type = MIB_CHANNELS_DATARATE;
+  mib.Param.ChannelsDatarate = kSweepDr[SweepSfIdx];
+  LoRaMacMibSetRequestConfirm(&mib);
+  mib.Type = MIB_CHANNELS_TX_POWER;
+  mib.Param.ChannelsTxPower = kSweepPowIdx[SweepPowStep];
+  LoRaMacMibSetRequestConfirm(&mib);
+}
+
+static void SweepStart(void) {
+  TimerStop(&TxTimer);
+  SweepSfIdx       = 0;
+  SweepPowStep     = 0;
+  SweepRep         = 0;
+  SweepEnergy_uJ   = 0.0f;
+  SweepSampleCount = 0;
+  SweepSetMib();
+  SweepState       = SWEEP_WAIT_TX;
+  IsTxFramePending = 1;
+}
+
+static void SweepAdvance(void) {
+  SweepRep++;
+  if (SweepRep >= SWEEP_REPS) {
+    SweepRep = 0;
+    SweepPowStep++;
+    if (SweepPowStep >= SWEEP_POW_COUNT) {
+      SweepPowStep = 0;
+      SweepSfIdx++;
+      if (SweepSfIdx >= SWEEP_SF_COUNT) {
+        SweepState = SWEEP_DONE;
+        am_util_stdio_printf("\n\n##################################################\n");
+        am_util_stdio_printf("##                                              ##\n");
+        am_util_stdio_printf("##           SWEEP COMPLETE (144/144)           ##\n");
+        am_util_stdio_printf("##                                              ##\n");
+        am_util_stdio_printf("##################################################\n\n");
+        return;
+      }
+    }
+  }
+  SweepSetMib();
+  SweepEnergy_uJ   = 0.0f;
+  SweepSampleCount = 0;
+  SweepState       = SWEEP_WAIT_TX;
+  IsTxFramePending = 1;
 }
 
 /*!
@@ -218,8 +321,13 @@ static volatile uint8_t IsSamplePending = 0;
  */
 static bool Ina219Ready = false;
 
+static void OnSweepTimerEvent(void *context);
+static void SweepSetMib(void);
+static void SweepStart(void);
+static void SweepAdvance(void);
+
 /*
- * Function that reads the external RTC and checks if there is a timestamp available 
+ * Function that reads the external RTC and checks if there is a timestamp available
  */
 static bool rtcRead();
 
@@ -283,17 +391,6 @@ static LmHandlerCallbacks_t LmHandlerCallbacks = {
   .OnSysTimeUpdate = OnSysTimeUpdate,
 };
 
-static LmHandlerParams_t LmHandlerParams = {
-  .Region = ACTIVE_REGION,
-  .AdrEnable = LORAWAN_ADR_STATE,
-  .IsTxConfirmed = LORAWAN_DEFAULT_CONFIRMED_MSG_STATE,
-  .TxDatarate = LORAWAN_DEFAULT_DATARATE,
-  .PublicNetworkEnable = LORAWAN_PUBLIC_NETWORK,
-  .DutyCycleEnabled = LORAWAN_DUTYCYCLE_ON,
-  .DataBufferMaxSize = LORAWAN_APP_DATA_BUFFER_MAX_SIZE,
-  .DataBuffer = AppDataBuffer,
-  .PingSlotPeriodicity = REGION_COMMON_DEFAULT_PING_SLOT_PERIODICITY,
-};
 
 static LmhpComplianceParams_t LmhpComplianceParams = {
   .FwVersion.Value = FIRMWARE_VERSION,
@@ -308,8 +405,6 @@ static LmhpComplianceParams_t LmhpComplianceParams = {
  * \warning If variable is equal to 0 then the MCU can be set in low power mode
  */
 static volatile uint8_t IsMacProcessPending = 0;
-
-static volatile uint8_t IsTxFramePending = 0;
 
 static volatile uint32_t TxPeriodicity = 0;
 
@@ -337,23 +432,15 @@ void periodicUplink(void) {
   const Version_t gitHubVersion = {
     .Value = GITHUB_VERSION
   };
-  DisplayAppInfo("periodic-uplink-lpp", &
-    appVersion, &
-    gitHubVersion);
 
   // Show which per-node configuration was selected (see deviceConfig.c). The
   // ChipID0 value printed here is what goes into the DeviceConfigTable entry.
   {
     am_hal_mcuctrl_device_t device;
     am_hal_mcuctrl_info_get(AM_HAL_MCUCTRL_INFO_DEVICEID, &device);
-    am_util_stdio_printf("[INFO] ChipID0 = 0x%08X, DeviceID = %u, DevAddr = 0x%08X\n",
-                         device.ui32ChipID0,
-                         (unsigned int)DeviceConfigGet()->PayloadDeviceId,
-                         DeviceConfigGet()->DevAddr);
   }
 
   if (LmHandlerInit( & LmHandlerCallbacks, & LmHandlerParams) != LORAMAC_HANDLER_SUCCESS) {
-    am_util_stdio_printf("LoRaMac wasn't properly initialized\n");
     // Fatal error, endless loop.
     while (1) {}
   }
@@ -397,8 +484,10 @@ void periodicUplink(void) {
     TimerSetValue( & SampleTimer, SAMPLE_INTERVAL);
     TimerStart( & SampleTimer);
   } else {
-    am_util_stdio_printf("[ERROR] INA219 init failed: ACK_ERROR\n");
   }
+
+  /* Enter sweep mode: TxTimer is stopped inside SweepStart(). */
+  SweepStart();
 
   //LmHandlerDeviceTimeReq();
 
@@ -416,6 +505,27 @@ void periodicUplink(void) {
     SampleProcess();
     if (IsDumpPending) {
       DumpCaptureJson();
+    }
+
+    /* Sweep: store result; after all reps print one JSON line, then advance. */
+    if (IsSweepDone) {
+      IsSweepDone = 0;
+      SweepResults[SweepRep] = (int32_t)(SweepEnergy_uJ + 0.5f);
+
+      if (SweepRep == SWEEP_REPS - 1) {
+        am_util_stdio_printf("{\"sf\":%d,\"txpow_idx\":%d,\"txpow_dbm\":%d,\"measurements\":[",
+          (int)kSweepSf[SweepSfIdx],
+          (int)kSweepPowIdx[SweepPowStep],
+          (int)kSweepPowDbm[SweepPowStep]);
+        for (int i = 0; i < SWEEP_REPS; i++) {
+          am_util_stdio_printf("%d%s", (int)SweepResults[i], (i < SWEEP_REPS - 1) ? "," : "");
+        }
+        am_util_stdio_printf("]}\n");
+      }
+
+      if (SweepState != SWEEP_DONE) {
+        SweepAdvance();
+      }
     }
 
     CRITICAL_SECTION_BEGIN();
@@ -449,24 +559,12 @@ static void OnMacProcessNotify(void) {
   IsMacProcessPending = 1;
 }
 
-static void OnNvmDataChange(LmHandlerNvmContextStates_t state, uint16_t size) {
-  DisplayNvmDataChange(state, size);
-}
-
-static void OnNetworkParametersChange(CommissioningParams_t * params) {
-  DisplayNetworkParametersUpdate(params);
-}
-
-static void OnMacMcpsRequest(LoRaMacStatus_t status, McpsReq_t * mcpsReq, TimerTime_t nextTxIn) {
-  DisplayMacMcpsRequestUpdate(status, mcpsReq, nextTxIn);
-}
-
-static void OnMacMlmeRequest(LoRaMacStatus_t status, MlmeReq_t * mlmeReq, TimerTime_t nextTxIn) {
-  DisplayMacMlmeRequestUpdate(status, mlmeReq, nextTxIn);
-}
+static void OnNvmDataChange(LmHandlerNvmContextStates_t state, uint16_t size) { (void)state; (void)size; }
+static void OnNetworkParametersChange(CommissioningParams_t * params) { (void)params; }
+static void OnMacMcpsRequest(LoRaMacStatus_t status, McpsReq_t * mcpsReq, TimerTime_t nextTxIn) { (void)status; (void)mcpsReq; (void)nextTxIn; }
+static void OnMacMlmeRequest(LoRaMacStatus_t status, MlmeReq_t * mlmeReq, TimerTime_t nextTxIn) { (void)status; (void)mlmeReq; (void)nextTxIn; }
 
 static void OnJoinRequest(LmHandlerJoinParams_t * params) {
-  DisplayJoinRequestUpdate(params);
   if (params -> Status == LORAMAC_HANDLER_ERROR) {
     LmHandlerJoin();
   } else {
@@ -474,14 +572,10 @@ static void OnJoinRequest(LmHandlerJoinParams_t * params) {
   }
 }
 
-// Nur ein Debug. OnTxData() wird automatisch nach dem TX-Cycle aufgerufen. DisplayTxUpdate sendet dann einen debug an die serielle Schnittstelle
-static void OnTxData(LmHandlerTxParams_t * params) {
-  DisplayTxUpdate(params);
-}
+static void OnTxData(LmHandlerTxParams_t * params) { (void)params; }
 
-// Wird automatisch aufgerufen, sobald ein RX empfangen wurde.
 static void OnRxData(LmHandlerAppData_t * appData, LmHandlerRxParams_t * params) {
-  DisplayRxUpdate(appData, params);
+  (void)params;
 
   switch (appData -> Port) {
   case 1: {
@@ -504,7 +598,6 @@ static void OnRxData(LmHandlerAppData_t * appData, LmHandlerRxParams_t * params)
 }
 
 static void OnClassChange(DeviceClass_t deviceClass) {
-  DisplayClassUpdate(deviceClass);
 
   // Inform the server as soon as possible that the end-device has switched to ClassB
   LmHandlerAppData_t appData = {
@@ -531,7 +624,6 @@ static void OnBeaconStatusChange(LoRaMacHandlerBeaconParams_t * params) {
   }
   }
 
-  DisplayBeaconUpdate(params);
 }
 
 #if(LMH_SYS_TIME_UPDATE_NEW_API == 1)
@@ -579,6 +671,19 @@ static void SampleProcess(void) {
   CapHead = (CapHead + 1) % CAPTURE_MAX;
   if (CapFill < CAPTURE_MAX) {
     CapFill++;
+  }
+
+  /* Accumulate energy during sweep measurement window using actual STIMER
+   * delta so the result is correct even when samples are skipped.
+   * E_uJ = V[V] * I[uA] * dt[s] * 1e6  →  V * uA * ticks/32768 */
+  if (SweepState == SWEEP_MEASURING) {
+    uint32_t now   = am_hal_stimer_counter_get();
+    float    dt_s  = (float)(now - SweepLastTick) / (float)STIMER_HZ;
+    SweepLastTick  = now;
+    if (current_uA > 0.0f) {
+      SweepEnergy_uJ += busVoltage_V * current_uA * dt_s;  /* V * uA * s = uJ */
+    }
+    SweepSampleCount++;
   }
 
   // Count down the post-trigger samples; request the dump when the window is full
@@ -644,6 +749,9 @@ static void PrepareTxFrame(void) {
   };
 
   if (LmHandlerIsBusy() == true) {
+    if (SweepState == SWEEP_WAIT_TX) {
+      IsTxFramePending = 1;  /* retry next loop iteration */
+    }
     return;
   }
 
@@ -656,11 +764,15 @@ static void PrepareTxFrame(void) {
     return;
   }
 
-  // Trigger a current/voltage capture at the start of the measurement. The ring
-  // buffer already holds PRE_SAMPLES of history (the "before"); from here the
-  // sampler collects POST_SAMPLES more (sensor read, TX, RX windows, a bit after)
-  // and then dumps the whole window as JSON.
-  if (!CaptureActive && !IsDumpPending) {
+  /* Start the 10 s sweep measurement window, or (outside sweep) the legacy
+   * ring-buffer capture. */
+  if (SweepState == SWEEP_WAIT_TX) {
+    SweepState    = SWEEP_MEASURING;
+    SweepLastTick = am_hal_stimer_counter_get();
+    TimerInit(&SweepTimer, OnSweepTimerEvent);
+    TimerSetValue(&SweepTimer, SWEEP_MEASURE_MS);
+    TimerStart(&SweepTimer);
+  } else if (!CaptureActive && !IsDumpPending) {
     TriggerTicks  = am_hal_stimer_counter_get();
     PostRoll      = POST_SAMPLES;
     CaptureActive = true;
@@ -674,12 +786,6 @@ static void PrepareTxFrame(void) {
 	float hum;
 	SHT3X_Error error = SHT3X_GetTempAndHumi(&temp, &hum);
 	//etError error = SHTC3_GetTempAndHumi(&temp, &hum);
-	if (error == SHT3X_ACK_ERROR) {
-		am_util_stdio_printf("[ERROR] Error while reading sensor data: ACK_ERROR\n");
-	}
-	if (error == SHT3X_CHECKSUM_ERROR) {
-		am_util_stdio_printf("[ERROR] Error while reading sensor data: CHECKSUM_ERROR\n");
-	}
 	JalapenosLppAddTemperatureAndHumidity(temp, hum);
 	JalapenosLppAddLedAndValue(AppLedStateOn ? 1 : 0, AppNumericValue);
 
