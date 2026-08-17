@@ -32,6 +32,50 @@
 #include "sht3x.h"
 #include "ina219.h"
 #include "deviceConfig.h"
+#include "LoRaMacTest.h"
+
+/* -----------------------------------------------------------------------
+ * EXPERIMENT MODE
+ * Set to 1 to run the link-characterisation sweep (SF × TxPower × 100 pkts).
+ * Set to 0 to restore normal periodic-uplink behaviour.
+ * ----------------------------------------------------------------------- */
+#define EXPERIMENT_MODE 1
+
+#if EXPERIMENT_MODE
+
+/* Test matrix ---------------------------------------------------------- */
+#define EXP_PACKETS_PER_COMBO   200
+#define EXP_PORT                3   /* separate port so normal decoder ignores it */
+
+/* DR_5=SF7 … DR_0=SF12  (ascending SF, descending DR index in EU868) */
+static const int8_t  ExpDatarates[] = { DR_5, DR_4, DR_3, DR_2, DR_1, DR_0 };
+static const uint8_t ExpSFValues[]  = {    7,    8,    9,   10,   11,   12  };
+#define EXP_NUM_DR   (sizeof(ExpDatarates) / sizeof(ExpDatarates[0]))
+
+static const int8_t  ExpTxPowers[]  = { 0, 1, 2, 3, 4, 5, 6, 7 }; /* index into EU868 TxPower table, 2 dB/step */
+#define EXP_NUM_POW  (sizeof(ExpTxPowers) / sizeof(ExpTxPowers[0]))
+
+#define EXP_NUM_COMBOS  (EXP_NUM_DR * EXP_NUM_POW)   /* 6 × 8 = 48 */
+
+#define EXP_CTRL_PORT   4    /* port for start/end markers              */
+#define EXP_CTRL_START  0x01 /* sent once before the first data packet  */
+#define EXP_CTRL_END    0xFF /* sent once after the last data packet     */
+
+/* State ---------------------------------------------------------------- */
+static uint8_t  ExpDrIdx    = 0;     /* 0 .. EXP_NUM_DR-1              */
+static uint8_t  ExpPowIdx   = 0;     /* 0 .. EXP_NUM_POW-1             */
+static uint16_t ExpRound    = 0;     /* 0 .. EXP_PACKETS_PER_COMBO-1   */
+static bool     ExpDone      = false;
+static bool     ExpSentStart = false;
+static bool     ExpSentEnd   = false;
+
+static uint8_t ExpComboIdx(void) { return ExpDrIdx * EXP_NUM_POW + ExpPowIdx; }
+
+/* Bodies defined after LmHandlerParams (forward declarations here) */
+static void ExpApplyParams(void);
+static void ExpAdvance(void);
+
+#endif /* EXPERIMENT_MODE */
 
 /*!
  * LoRaWAN default end-device class
@@ -90,12 +134,16 @@ uint32_t fl_meas_ctr = 4;
  *
  * \remark Please note that when ADR is enabled the end-device should be static
  */
+#if EXPERIMENT_MODE
+#define LORAWAN_ADR_STATE LORAMAC_HANDLER_ADR_OFF
+#else
 #define LORAWAN_ADR_STATE LORAMAC_HANDLER_ADR_ON //can change to OFF
+#endif
 
 /*!
  * Default datarate
  *
- * \remark Please note that LORAWAN_DEFAULT_DATARATE is used only when ADR is disabled 
+ * \remark Please note that LORAWAN_DEFAULT_DATARATE is used only when ADR is disabled
  */
 #define LORAWAN_DEFAULT_DATARATE DR_0 //can change to 3
 
@@ -114,7 +162,11 @@ uint32_t fl_meas_ctr = 4;
  *
  * \remark Please note that ETSI mandates duty cycled transmissions. Use only for test purposes
  */
+#if EXPERIMENT_MODE
+#define LORAWAN_DUTYCYCLE_ON false
+#else
 #define LORAWAN_DUTYCYCLE_ON true
+#endif
 
 /*!
  * LoRaWAN application port
@@ -302,6 +354,47 @@ static LmhpComplianceParams_t LmhpComplianceParams = {
   .OnPingSlotPeriodicityChanged = OnPingSlotPeriodicityChanged,
 };
 
+#if EXPERIMENT_MODE
+static void ExpApplyParams(void)
+{
+    LmHandlerParams.TxDatarate = ExpDatarates[ExpDrIdx];
+
+    MibRequestConfirm_t mib;
+    mib.Type = MIB_CHANNELS_TX_POWER;
+    mib.Param.ChannelsTxPower = ExpTxPowers[ExpPowIdx];
+    LoRaMacMibSetRequestConfirm(&mib);
+
+    am_util_stdio_printf("[EXP] Round %u/%u  Combo %u/%u  SF%u  TxPow=%d\n",
+                         ExpRound + 1, EXP_PACKETS_PER_COMBO,
+                         ExpComboIdx() + 1, EXP_NUM_COMBOS,
+                         ExpSFValues[ExpDrIdx], ExpTxPowers[ExpPowIdx]);
+}
+
+/*
+ * Advance to the next combo within the current round; when all 48 combos are
+ * done, start the next round. Cycling through all combos in every round
+ * distributes time-varying interference (e.g. a passing vehicle) evenly
+ * across all SF/TxPow combinations instead of confounding a single one.
+ */
+static void ExpAdvance(void)
+{
+    ExpPowIdx++;
+    if (ExpPowIdx < EXP_NUM_POW) return;
+
+    ExpPowIdx = 0;
+    ExpDrIdx++;
+    if (ExpDrIdx < EXP_NUM_DR) return;
+
+    ExpDrIdx = 0;
+    ExpRound++;
+    if (ExpRound < EXP_PACKETS_PER_COMBO) return;
+
+    ExpDone = true;
+    am_util_stdio_printf("[EXP] *** Experiment complete — %u rounds x %u combos done ***\n",
+                         EXP_PACKETS_PER_COMBO, EXP_NUM_COMBOS);
+}
+#endif /* EXPERIMENT_MODE */
+
 /*!
  * Indicates if LoRaMacProcess call is pending.
  * 
@@ -357,6 +450,15 @@ void periodicUplink(void) {
     // Fatal error, endless loop.
     while (1) {}
   }
+
+#if EXPERIMENT_MODE
+  LoRaMacTestSetDutyCycleOn(false);
+  APP_TX_DUTYCYCLE = 5000;
+  am_util_stdio_printf("[EXP] Experiment mode active — duty cycle OFF, interval 5 s\n");
+  am_util_stdio_printf("[EXP] %u combos, %u pkts each, total %u packets\n",
+                       EXP_NUM_COMBOS, EXP_PACKETS_PER_COMBO,
+                       (unsigned)(EXP_NUM_COMBOS * EXP_PACKETS_PER_COMBO));
+#endif
 
   // Set system maximum tolerated rx error in milliseconds. The Apollo3 RTC
   // timebase has a 10 ms tick (100 Hz), so alarm scheduling and the ms->tick
@@ -427,7 +529,9 @@ void periodicUplink(void) {
       BoardLowPowerHandler();
     }
     CRITICAL_SECTION_END();
+#if !EXPERIMENT_MODE
     APP_TX_DUTYCYCLE = 10000; // Can change this to change duty cycle when needed or wanted
+#endif
     TxPeriodicity = 0;
     while (TxPeriodicity < APP_TX_DUTYCYCLE || TxPeriodicity > APP_TX_DUTYCYCLE + APP_TX_DUTYCYCLE_RND) {
       TxPeriodicity = APP_TX_DUTYCYCLE + randr(0, APP_TX_DUTYCYCLE_RND);
@@ -646,6 +750,67 @@ static void PrepareTxFrame(void) {
   if (LmHandlerIsBusy() == true) {
     return;
   }
+
+#if EXPERIMENT_MODE
+  /* ── Start marker (first TX of the entire experiment) ── */
+  if (!ExpSentStart) {
+    uint8_t marker = EXP_CTRL_START;
+    LmHandlerAppData_t ctrl = {
+      .Buffer = &marker, .BufferSize = 1, .Port = EXP_CTRL_PORT
+    };
+    if (LmHandlerSend(&ctrl, LORAMAC_HANDLER_UNCONFIRMED_MSG) == LORAMAC_HANDLER_SUCCESS) {
+      ExpSentStart = true;
+      am_util_stdio_printf("[EXP] Start marker sent\n");
+    }
+    return;
+  }
+
+  /* ── End marker (one TX after the last data packet) ── */
+  if (ExpDone) {
+    if (!ExpSentEnd) {
+      uint8_t marker = EXP_CTRL_END;
+      LmHandlerAppData_t ctrl = {
+        .Buffer = &marker, .BufferSize = 1, .Port = EXP_CTRL_PORT
+      };
+      if (LmHandlerSend(&ctrl, LORAMAC_HANDLER_UNCONFIRMED_MSG) == LORAMAC_HANDLER_SUCCESS) {
+        ExpSentEnd = true;
+        am_util_stdio_printf("[EXP] End marker sent\n");
+      }
+    }
+    return;
+  }
+
+  /* ── Regular data packet ── */
+  {
+    float temp = 0.0f, hum = 0.0f;
+    SHT3X_GetTempAndHumi(&temp, &hum);
+
+    ExpApplyParams();
+
+    uint8_t expBuf[8];
+    expBuf[0] = ExpComboIdx();
+    expBuf[1] = (uint8_t)(ExpRound & 0xFF);
+    expBuf[2] = ExpSFValues[ExpDrIdx];
+    expBuf[3] = (uint8_t)ExpTxPowers[ExpPowIdx];
+    int16_t tempX10 = (int16_t)(temp * 10.0f);
+    uint16_t humX10 = (uint16_t)(hum * 10.0f);
+    expBuf[4] = (uint8_t)(tempX10 >> 8);
+    expBuf[5] = (uint8_t)(tempX10 & 0xFF);
+    expBuf[6] = (uint8_t)(humX10 >> 8);
+    expBuf[7] = (uint8_t)(humX10 & 0xFF);
+
+    LmHandlerAppData_t expData = {
+      .Buffer     = expBuf,
+      .BufferSize = sizeof(expBuf),
+      .Port       = EXP_PORT,
+    };
+
+    if (LmHandlerSend(&expData, LORAMAC_HANDLER_UNCONFIRMED_MSG) == LORAMAC_HANDLER_SUCCESS) {
+      ExpAdvance();
+    }
+  }
+  return;
+#endif /* EXPERIMENT_MODE */
 
   if (requireTimeRequest == true) {
     AppData.Buffer = 0;
