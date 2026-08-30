@@ -315,6 +315,13 @@ static volatile uint32_t TxPeriodicity = 0;
 
 volatile bool requireTimeRequest = false;
 
+#define PAM_LED 42
+#define PAM_LED_GPIO_1 36
+#define PAM_LED_GPIO_2 37
+
+static am_hal_gpio_write_type_e PAM_LED_GPIO_1_VALUE = AM_HAL_GPIO_OUTPUT_CLEAR;
+static am_hal_gpio_write_type_e PAM_LED_GPIO_2_VALUE= AM_HAL_GPIO_OUTPUT_CLEAR;
+
 /*!
  * Main application entry point.
  */
@@ -391,14 +398,14 @@ void periodicUplink(void) {
 
   // Initialise the INA219 and start the continuous sampling into the ring
   // buffer. SampleProcess() reads one sample per SampleTimer tick.
-  if (INA219_Init() == INA219_NO_ERROR) {
+  /**if (INA219_Init() == INA219_NO_ERROR) {
     Ina219Ready = true;
     TimerInit( & SampleTimer, OnSampleTimerEvent);
     TimerSetValue( & SampleTimer, SAMPLE_INTERVAL);
     TimerStart( & SampleTimer);
   } else {
     am_util_stdio_printf("[ERROR] INA219 init failed: ACK_ERROR\n");
-  }
+  }**/
 
   //LmHandlerDeviceTimeReq();
 
@@ -479,16 +486,49 @@ static void OnTxData(LmHandlerTxParams_t * params) {
   DisplayTxUpdate(params);
 }
 
-// Wird automatisch aufgerufen, sobald ein RX empfangen wurde.
+#define GREEN_LED_PIN 38
+
 static void OnRxData(LmHandlerAppData_t * appData, LmHandlerRxParams_t * params) {
   DisplayRxUpdate(appData, params);
 
   switch (appData -> Port) {
   case 1: {
     if (appData -> BufferSize > 0) {
-      AppLedStateOn = (appData -> Buffer[0] & 0x01) != 0;
-      am_hal_gpio_state_write(GREEN_LED_PIN, AppLedStateOn ? AM_HAL_GPIO_OUTPUT_SET
-                                                           : AM_HAL_GPIO_OUTPUT_CLEAR);
+      //AppLedStateOn = (appData -> Buffer[0] & 0x01) != 0;
+			//if ((appData -> Buffer[0] & 0x01) != 0) {
+			//	am_hal_gpio_state_write(PAM_LED_GPIO_1, AM_HAL_GPIO_OUTPUT_SET);
+			//	am_hal_gpio_state_write(PAM_LED_GPIO_2, AM_HAL_GPIO_OUTPUT_CLEAR);
+			//} else if ((appData -> Buffer[0] & 0x02) != 0) {
+			//am_hal_gpio_state_write(PAM_LED_GPIO_1, AM_HAL_GPIO_OUTPUT_CLEAR);
+			//	am_hal_gpio_state_write(PAM_LED_GPIO_2, AM_HAL_GPIO_OUTPUT_CLEAR);
+			//}else if ((appData -> Buffer[0] & 0x03) != 0) {
+			//am_hal_gpio_state_write(PAM_LED_GPIO_1, AM_HAL_GPIO_OUTPUT_CLEAR);
+			//	am_hal_gpio_state_write(PAM_LED_GPIO_2, AM_HAL_GPIO_OUTPUT_SET);
+			//}else if ((appData -> Buffer[0] & 0x04) != 0) {
+			//am_hal_gpio_state_write(PAM_LED_GPIO_1, AM_HAL_GPIO_OUTPUT_SET);
+			//	am_hal_gpio_state_write(PAM_LED_GPIO_2, AM_HAL_GPIO_OUTPUT_SET);
+			//}
+      //am_hal_gpio_state_write(GREEN_LED_PIN, AppLedStateOn ? AM_HAL_GPIO_OUTPUT_SET : AM_HAL_GPIO_OUTPUT_CLEAR);
+			if (appData->BufferSize > 0) {
+			switch (appData->Buffer[0] & 0x03) {
+        case 0x01:
+					  PAM_LED_GPIO_1_VALUE = AM_HAL_GPIO_OUTPUT_CLEAR;
+						PAM_LED_GPIO_2_VALUE = AM_HAL_GPIO_OUTPUT_CLEAR;
+            break;
+        case 0x02:
+					  PAM_LED_GPIO_1_VALUE = AM_HAL_GPIO_OUTPUT_SET;
+						PAM_LED_GPIO_2_VALUE = AM_HAL_GPIO_OUTPUT_CLEAR;
+            break;
+        case 0x03:
+					  PAM_LED_GPIO_1_VALUE = AM_HAL_GPIO_OUTPUT_CLEAR;
+						PAM_LED_GPIO_2_VALUE = AM_HAL_GPIO_OUTPUT_SET;
+            break;
+        default: // 0x00
+					  PAM_LED_GPIO_1_VALUE = AM_HAL_GPIO_OUTPUT_SET;
+						PAM_LED_GPIO_2_VALUE = AM_HAL_GPIO_OUTPUT_SET;
+            break;
+    }
+}
     }
     break;
   }
@@ -669,7 +709,7 @@ static void PrepareTxFrame(void) {
   AppData2.Port = LORAWAN_APP_PORT;
   JalapenosLppReset();
   JalapenosLppAddDeviceID(DeviceConfigGet()->PayloadDeviceId);
-
+/**
 	float temp;
 	float hum;
 	SHT3X_Error error = SHT3X_GetTempAndHumi(&temp, &hum);
@@ -682,7 +722,19 @@ static void PrepareTxFrame(void) {
 	}
 	JalapenosLppAddTemperatureAndHumidity(temp, hum);
 	JalapenosLppAddLedAndValue(AppLedStateOn ? 1 : 0, AppNumericValue);
-
+**/
+	
+	am_hal_gpio_state_write(PAM_LED, AM_HAL_GPIO_OUTPUT_SET);
+		am_hal_gpio_state_write(PAM_LED_GPIO_1, PAM_LED_GPIO_1_VALUE);
+    am_hal_gpio_state_write(PAM_LED_GPIO_2, PAM_LED_GPIO_2_VALUE);
+		
+		am_util_delay_ms(2000);
+	
+		am_hal_gpio_state_write(PAM_LED, AM_HAL_GPIO_OUTPUT_CLEAR);
+		am_hal_gpio_state_write(PAM_LED_GPIO_1, AM_HAL_GPIO_OUTPUT_CLEAR);
+    am_hal_gpio_state_write(PAM_LED_GPIO_2, AM_HAL_GPIO_OUTPUT_CLEAR);
+		
+		
   // The current/voltage trace is no longer sent over LoRa; it is captured into
   // the ring buffer and dumped as JSON over SWO. The LoRa uplink carries only
   // device ID, temperature and humidity.

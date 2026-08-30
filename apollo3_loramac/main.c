@@ -38,6 +38,13 @@
 #error "You must define exactly one hardware version!"
 #endif
 
+
+
+#define PAM_LED 42
+#define PAM_LED_GPIO_1 36
+#define PAM_LED_GPIO_2 37
+
+
 int main(void) {
 	
 	// Set the CPU to the correct operating frequency 
@@ -63,7 +70,7 @@ int main(void) {
 	// Enable console prints
   enable_printf();
   am_util_stdio_printf("Bachelorprojekt Vincent Boch 2026");
-	
+	/**
 	am_hal_gpio_pinconfig(37, g_AM_HAL_GPIO_OUTPUT); // Configure D1 to be an output pin (red led)
 	am_hal_gpio_pinconfig(38, g_AM_HAL_GPIO_OUTPUT); // Configure D2 to be an output pin (green led)
 	
@@ -78,7 +85,30 @@ int main(void) {
 	
 	am_util_delay_ms(500); // wait 500 ms
 	am_hal_gpio_state_write(38, AM_HAL_GPIO_OUTPUT_CLEAR); // set green led to low
+**/
 
+	
+	am_hal_gpio_pinconfig(PAM_LED, g_AM_HAL_GPIO_OUTPUT);
+	am_hal_gpio_pinconfig(PAM_LED_GPIO_1, g_AM_HAL_GPIO_OUTPUT);
+	am_hal_gpio_pinconfig(PAM_LED_GPIO_2, g_AM_HAL_GPIO_OUTPUT);
+	
+	
+	am_hal_gpio_state_write(PAM_LED_GPIO_1, AM_HAL_GPIO_OUTPUT_CLEAR);
+  am_hal_gpio_state_write(PAM_LED_GPIO_2, AM_HAL_GPIO_OUTPUT_CLEAR);
+	am_hal_gpio_state_write(PAM_LED, AM_HAL_GPIO_OUTPUT_SET);
+	am_util_delay_ms(1000);
+	am_hal_gpio_state_write(PAM_LED_GPIO_1, AM_HAL_GPIO_OUTPUT_SET);
+  am_hal_gpio_state_write(PAM_LED_GPIO_2, AM_HAL_GPIO_OUTPUT_CLEAR);
+	am_util_delay_ms(1000);
+	am_hal_gpio_state_write(PAM_LED_GPIO_1, AM_HAL_GPIO_OUTPUT_CLEAR);
+  am_hal_gpio_state_write(PAM_LED_GPIO_2, AM_HAL_GPIO_OUTPUT_SET);	
+	am_util_delay_ms(1000);
+	am_hal_gpio_state_write(PAM_LED_GPIO_1, AM_HAL_GPIO_OUTPUT_SET);
+  am_hal_gpio_state_write(PAM_LED_GPIO_2, AM_HAL_GPIO_OUTPUT_SET);
+	am_util_delay_ms(1000);
+	am_hal_gpio_state_write(PAM_LED, AM_HAL_GPIO_OUTPUT_CLEAR);
+	
+	
   periodicUplink();
 
   while (1) { //this while(1) loop seems to break the debugger, however the actual goal was testing the RTC alarm by enabling interrupts globally
