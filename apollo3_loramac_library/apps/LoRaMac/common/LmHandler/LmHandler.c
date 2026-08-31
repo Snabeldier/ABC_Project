@@ -93,7 +93,7 @@ static LmHandlerTxParams_t TxParams =
         .BufferSize = 0,
         .Buffer = NULL,
     },
-    .TxPower = TX_POWER_0,
+    .TxPower = TX_POWER_1,
     .Channel = 0,
 };
 
