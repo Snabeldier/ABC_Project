@@ -580,6 +580,16 @@
               <FilePath>.\periodicUplink.h</FilePath>
             </File>
             <File>
+              <FileName>payloadSweep.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\payloadSweep.c</FilePath>
+            </File>
+            <File>
+              <FileName>payloadSweep.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\payloadSweep.h</FilePath>
+            </File>
+            <File>
               <FileName>deviceConfig.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\deviceConfig.c</FilePath>
