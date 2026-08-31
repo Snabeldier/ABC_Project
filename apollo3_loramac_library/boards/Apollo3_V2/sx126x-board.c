@@ -30,7 +30,6 @@ extern "C"
 #include "gpio.h"
 #include "sx126x-board.h"
 #include "delay.h"
-#include "transmitConfig.h"
 #include "boardControl.h"
 
 
@@ -341,7 +340,7 @@ bool SX126xCheckRfFrequency( uint32_t frequency ){
  */
 uint32_t SX126xGetBoardTcxoWakeupTime( void )
 {
-    return BOARD_TCXO_WAKEUP_TIME;
+    return 20;
 }
 
 /*!

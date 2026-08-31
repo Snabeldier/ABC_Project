@@ -90,14 +90,14 @@ uint32_t fl_meas_ctr = 4;
  *
  * \remark Please note that when ADR is enabled the end-device should be static
  */
-#define LORAWAN_ADR_STATE LORAMAC_HANDLER_ADR_ON //can change to OFF
+#define LORAWAN_ADR_STATE LORAMAC_HANDLER_ADR_OFF
 
 /*!
  * Default datarate
  *
  * \remark Please note that LORAWAN_DEFAULT_DATARATE is used only when ADR is disabled 
  */
-#define LORAWAN_DEFAULT_DATARATE DR_0 //can change to 3
+#define LORAWAN_DEFAULT_DATARATE DR_3
 
 /*!
  * LoRaWAN confirmed messages

@@ -800,11 +800,6 @@
               <FilePath>..\apollo3_loramac_library\boards\Apollo3_V2\utilities.c</FilePath>
             </File>
             <File>
-              <FileName>transmitConfig.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\apollo3_loramac_library\boards\Apollo3_V2\transmitConfig.h</FilePath>
-            </File>
-            <File>
               <FileName>board.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\apollo3_loramac_library\boards\board.h</FilePath>
