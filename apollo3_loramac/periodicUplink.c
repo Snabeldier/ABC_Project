@@ -75,7 +75,7 @@ uint32_t fl_meas_ctr = 4;
  */
 #define SAMPLE_INTERVAL  10                            /* ms between samples          */
 #define PRE_SAMPLES      50                            /* history kept before trigger */
-#define POST_SAMPLES     250                           /* samples after the trigger   */
+#define POST_SAMPLES     300                           /* samples after the trigger; 3 s covers TX+RX1+RX2 */
 #define CAPTURE_MAX      (PRE_SAMPLES + POST_SAMPLES)  /* ring buffer size            */
 #define STIMER_HZ        32768UL                       /* STIMER clock (XTAL 32 kHz)  */
 
@@ -83,7 +83,7 @@ uint32_t fl_meas_ctr = 4;
  * Defines a random delay for application data transmission duty cycle. 1s,
  * value in [ms].
  */
-#define APP_TX_DUTYCYCLE_RND 1000
+#define APP_TX_DUTYCYCLE_RND 0
 
 /*!
  * LoRaWAN Adaptive Data Rate
@@ -114,7 +114,7 @@ uint32_t fl_meas_ctr = 4;
  *
  * \remark Please note that ETSI mandates duty cycled transmissions. Use only for test purposes
  */
-#define LORAWAN_DUTYCYCLE_ON true
+#define LORAWAN_DUTYCYCLE_ON false  /* disabled for energy measurements — do NOT enable in production */
 
 /*!
  * LoRaWAN application port
@@ -218,6 +218,24 @@ static volatile uint8_t IsSamplePending = 0;
  */
 static bool Ina219Ready = false;
 
+/*!
+ * Round-robin uplink type measurement state.
+ *
+ * CycleIndex counts every dispatched uplink (0-based). Even indices send an
+ * UNCONFIRMED frame; odd indices send a CONFIRMED frame. This lets two test
+ * runs (gateway on / gateway off) produce the three conditions:
+ *   - UNCONFIRMED
+ *   - CONFIRMED + ACK received   (gateway on)
+ *   - CONFIRMED + no ACK         (gateway off)
+ *
+ * CurrentFrameType is written in PrepareTxFrame() before the send and read in
+ * DumpCaptureJson() after the capture is complete.
+ * LastAckReceived is written by OnTxData() (after RX2) and read in DumpCaptureJson().
+ */
+static uint32_t             CycleIndex       = 0;
+static LmHandlerMsgTypes_t  CurrentFrameType = LORAMAC_HANDLER_UNCONFIRMED_MSG;
+static volatile uint8_t     LastAckReceived  = 0;
+
 /*
  * Function that reads the external RTC and checks if there is a timestamp available 
  */
@@ -296,7 +314,7 @@ static LmHandlerParams_t LmHandlerParams = {
 };
 
 static LmhpComplianceParams_t LmhpComplianceParams = {
-  .FwVersion.Value = FIRMWARE_VERSION,
+  .FwVersion.Value = 0x1300,
   .OnTxPeriodicityChanged = OnTxPeriodicityChanged,
   .OnTxFrameCtrlChanged = OnTxFrameCtrlChanged,
   .OnPingSlotPeriodicityChanged = OnPingSlotPeriodicityChanged,
@@ -331,15 +349,9 @@ void periodicUplink(void) {
   // Initialize transmission periodicity variable
   TxPeriodicity = APP_TX_DUTYCYCLE + randr(-APP_TX_DUTYCYCLE_RND, APP_TX_DUTYCYCLE_RND);
 
-  const Version_t appVersion = {
-    .Value = FIRMWARE_VERSION
-  };
   const Version_t gitHubVersion = {
     .Value = GITHUB_VERSION
   };
-  DisplayAppInfo("periodic-uplink-lpp", &
-    appVersion, &
-    gitHubVersion);
 
   // Show which per-node configuration was selected (see deviceConfig.c). The
   // ChipID0 value printed here is what goes into the DeviceConfigTable entry.
@@ -427,7 +439,7 @@ void periodicUplink(void) {
       BoardLowPowerHandler();
     }
     CRITICAL_SECTION_END();
-    APP_TX_DUTYCYCLE = 10000; // Can change this to change duty cycle when needed or wanted
+    APP_TX_DUTYCYCLE = 4000;
     TxPeriodicity = 0;
     while (TxPeriodicity < APP_TX_DUTYCYCLE || TxPeriodicity > APP_TX_DUTYCYCLE + APP_TX_DUTYCYCLE_RND) {
       TxPeriodicity = APP_TX_DUTYCYCLE + randr(0, APP_TX_DUTYCYCLE_RND);
@@ -474,9 +486,10 @@ static void OnJoinRequest(LmHandlerJoinParams_t * params) {
   }
 }
 
-// Nur ein Debug. OnTxData() wird automatisch nach dem TX-Cycle aufgerufen. DisplayTxUpdate sendet dann einen debug an die serielle Schnittstelle
+// Called by the stack after RX2 closes. Captures the ACK result for the dump.
 static void OnTxData(LmHandlerTxParams_t * params) {
   DisplayTxUpdate(params);
+  LastAckReceived = params->AckReceived;
 }
 
 // Wird automatisch aufgerufen, sobald ein RX empfangen wurde.
@@ -602,17 +615,52 @@ static uint32_t TicksToUs(uint32_t ticks, uint32_t t0) {
 
 /*!
  * Prints the captured ring buffer (oldest -> newest) as a single JSON object
- * over SWO. Timestamps are reported in microseconds relative to the first
- * captured sample.
+ * over SWO. Timestamps are in microseconds relative to the first sample.
+ *
+ * Energy is integrated as: E_nJ += I_uA * V_mV * dt_us / 1000
+ * (uA * mV * us = 1e-6 A * 1e-3 V * 1e-6 s = 1e-15 J = 1e-6 nJ;
+ *  dividing by 1000 gives nJ directly). Reported as mJ with three decimals.
+ *
+ * Frame type and ACK status (set by OnTxData before this runs) are included
+ * in the JSON header and in a human-readable [RESULT] summary line.
  */
 static void DumpCaptureJson(void) {
-  uint16_t n = CapFill;
+  uint16_t n      = CapFill;
   uint16_t oldest = (uint16_t)((CapHead + CAPTURE_MAX - n) % CAPTURE_MAX);
-  uint32_t t0 = CapTicks[oldest];
+  uint32_t t0     = CapTicks[oldest];
 
-  am_util_stdio_printf("{\"trigger_t_us\":%u,\"tx_t_us\":%u,\"samples\":[\n",
-                       (unsigned)TicksToUs(TriggerTicks, t0),
-                       (unsigned)TicksToUs(TxTicks, t0));
+  /* Integrate energy over the captured window. Uses int64 arithmetic to avoid
+   * overflow (max single-sample product: 333000 uA * 3300 mV * 10000 us / 1000
+   * = ~1.1e10 nJ, well within int64 range). */
+  int64_t energy_nJ = 0;
+  for (uint16_t k = 1; k < n; k++) {
+    uint16_t ip = (uint16_t)((oldest + k - 1) % CAPTURE_MAX);
+    uint16_t ic = (uint16_t)((oldest + k)     % CAPTURE_MAX);
+    uint32_t dt_us = TicksToUs(CapTicks[ic], CapTicks[ip]);
+    energy_nJ += (int64_t)CapCurrent_uA[ic] * (int64_t)CapBus_mV[ic]
+                 * (int64_t)dt_us / 1000LL;
+  }
+  /* Convert nJ -> mJ for display (integer parts only; am_util_stdio_printf
+   * does not support %f). */
+  uint32_t thisCycle    = CycleIndex - 1;
+  uint32_t energy_mJ_i  = (uint32_t)(energy_nJ / 1000000LL);
+  uint32_t energy_mJ_f  = (uint32_t)((energy_nJ % 1000000LL) / 1000LL);
+
+  const char *typeStr =
+    (CurrentFrameType == LORAMAC_HANDLER_CONFIRMED_MSG) ? "CONFIRMED" : "UNCONFIRMED";
+  const char *ackStr  =
+    (CurrentFrameType == LORAMAC_HANDLER_CONFIRMED_MSG)
+      ? (LastAckReceived ? "YES" : "NO")
+      : "N/A";
+
+  am_util_stdio_printf(
+    "{\"cycle\":%u,\"type\":\"%s\",\"ack\":\"%s\","
+    "\"energy_mJ\":\"%u.%03u\","
+    "\"trigger_t_us\":%u,\"tx_t_us\":%u,\"samples\":[\n",
+    (unsigned)thisCycle, typeStr, ackStr,
+    (unsigned)energy_mJ_i, (unsigned)energy_mJ_f,
+    (unsigned)TicksToUs(TriggerTicks, t0),
+    (unsigned)TicksToUs(TxTicks, t0));
 
   for (uint16_t k = 0; k < n; k++) {
     uint16_t idx = (uint16_t)((oldest + k) % CAPTURE_MAX);
@@ -625,6 +673,12 @@ static void DumpCaptureJson(void) {
   }
 
   am_util_stdio_printf("]}\n");
+
+  /* Human-readable summary — easy to grep in the SWO log. */
+  am_util_stdio_printf("[RESULT] Cycle %u | %s | ACK=%s | Energy=%u.%03u mJ\n",
+                       (unsigned)thisCycle, typeStr, ackStr,
+                       (unsigned)energy_mJ_i, (unsigned)energy_mJ_f);
+
   IsDumpPending = 0;
 }
 
@@ -655,6 +709,17 @@ static void PrepareTxFrame(void) {
     LmHandlerSend( & AppData, LmHandlerParams.IsTxConfirmed);
     return;
   }
+
+  /* Round-robin: even CycleIndex -> UNCONFIRMED, odd -> CONFIRMED. */
+  CurrentFrameType = (CycleIndex % 2 == 0)
+    ? LORAMAC_HANDLER_UNCONFIRMED_MSG
+    : LORAMAC_HANDLER_CONFIRMED_MSG;
+  LastAckReceived = 0;
+
+  am_util_stdio_printf("[CYCLE %u] %s uplink starting\n",
+                       (unsigned)CycleIndex,
+                       (CurrentFrameType == LORAMAC_HANDLER_CONFIRMED_MSG)
+                         ? "CONFIRMED" : "UNCONFIRMED");
 
   // Trigger a current/voltage capture at the start of the measurement. The ring
   // buffer already holds PRE_SAMPLES of history (the "before"); from here the
@@ -698,7 +763,8 @@ static void PrepareTxFrame(void) {
   // am_hal_gpio_state_write(RED_LED_PIN, AM_HAL_GPIO_OUTPUT_SET);
   // TimerStart( & LedTimer);
 
-  LmHandlerSend( & AppData2, LmHandlerParams.IsTxConfirmed);
+  LmHandlerSend(&AppData2, CurrentFrameType);
+  CycleIndex++;
 }
 
 static void StartTxProcess(LmHandlerTxEvents_t txEvent) {
