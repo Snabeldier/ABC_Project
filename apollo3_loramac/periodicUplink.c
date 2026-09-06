@@ -32,6 +32,7 @@
 #include "sht3x.h"
 #include "ina219.h"
 #include "deviceConfig.h"
+#include "bundle.h"
 
 /*!
  * LoRaWAN default end-device class
@@ -48,7 +49,11 @@
 // rtc-board.c: RtcGetCalendarValue() dropped the hundredths (1 s timer
 // granularity) and RtcStartAlarm() re-based alarms on "now" instead of the
 // timer context, so the RX windows opened seconds late. Fixed there.
-uint32_t APP_TX_DUTYCYCLE = 2000;
+
+/* Measurement interval in ms — single definition for the entire application. */
+#define T_MEASURE_MS 600000
+
+uint32_t APP_TX_DUTYCYCLE = T_MEASURE_MS;
 
 uint32_t fl_meas_ctr = 4;
 
@@ -296,7 +301,7 @@ static LmHandlerParams_t LmHandlerParams = {
 };
 
 static LmhpComplianceParams_t LmhpComplianceParams = {
-  .FwVersion.Value = FIRMWARE_VERSION,
+  .FwVersion.Value = 0x1300,
   .OnTxPeriodicityChanged = OnTxPeriodicityChanged,
   .OnTxFrameCtrlChanged = OnTxFrameCtrlChanged,
   .OnPingSlotPeriodicityChanged = OnPingSlotPeriodicityChanged,
@@ -331,15 +336,9 @@ void periodicUplink(void) {
   // Initialize transmission periodicity variable
   TxPeriodicity = APP_TX_DUTYCYCLE + randr(-APP_TX_DUTYCYCLE_RND, APP_TX_DUTYCYCLE_RND);
 
-  const Version_t appVersion = {
-    .Value = FIRMWARE_VERSION
-  };
   const Version_t gitHubVersion = {
     .Value = GITHUB_VERSION
   };
-  DisplayAppInfo("periodic-uplink-lpp", &
-    appVersion, &
-    gitHubVersion);
 
   // Show which per-node configuration was selected (see deviceConfig.c). The
   // ChipID0 value printed here is what goes into the DeviceConfigTable entry.
@@ -357,6 +356,15 @@ void periodicUplink(void) {
     // Fatal error, endless loop.
     while (1) {}
   }
+
+  {
+    MibRequestConfirm_t mibReq;
+    mibReq.Type = MIB_CHANNELS_NB_TRANS;
+    mibReq.Param.ChannelsNbTrans = 15;
+    LoRaMacMibSetRequestConfirm(&mibReq);
+  }
+
+  Bundle_Init();
 
   // Set system maximum tolerated rx error in milliseconds. The Apollo3 RTC
   // timebase has a 10 ms tick (100 Hz), so alarm scheduling and the ms->tick
@@ -427,7 +435,7 @@ void periodicUplink(void) {
       BoardLowPowerHandler();
     }
     CRITICAL_SECTION_END();
-    APP_TX_DUTYCYCLE = 10000; // Can change this to change duty cycle when needed or wanted
+    APP_TX_DUTYCYCLE = T_MEASURE_MS;
     TxPeriodicity = 0;
     while (TxPeriodicity < APP_TX_DUTYCYCLE || TxPeriodicity > APP_TX_DUTYCYCLE + APP_TX_DUTYCYCLE_RND) {
       TxPeriodicity = APP_TX_DUTYCYCLE + randr(0, APP_TX_DUTYCYCLE_RND);
@@ -474,9 +482,12 @@ static void OnJoinRequest(LmHandlerJoinParams_t * params) {
   }
 }
 
-// Nur ein Debug. OnTxData() wird automatisch nach dem TX-Cycle aufgerufen. DisplayTxUpdate sendet dann einen debug an die serielle Schnittstelle
 static void OnTxData(LmHandlerTxParams_t * params) {
   DisplayTxUpdate(params);
+
+  if (params->IsMcpsConfirm) {
+    Bundle_OnTxDone(params->AckReceived != 0);
+  }
 }
 
 // Wird automatisch aufgerufen, sobald ein RX empfangen wurde.
@@ -630,17 +641,18 @@ static void DumpCaptureJson(void) {
 
 /*!
  * Prepares the payload of the frame and transmits it.
+ *
+ * Called on every TxTimer tick (T_MEASURE_MS).  Reads the SHT31 sensor and
+ * adds the sample to the bundle buffer.  Returns without transmitting until
+ * the buffer reaches N_BUNDLE samples.  Once full, serialises and calls
+ * LmHandlerSend.  The buffer is cleared in Bundle_OnTxDone after MCPS-Confirm.
  */
 static void PrepareTxFrame(void) {
-
-  //User application data
-  uint8_t AppDataBuffer2[LORAWAN_APP_DATA_BUFFER_MAX_SIZE];
-
-  // User application data structure
-  LmHandlerAppData_t AppData2 = {
-    .Buffer = AppDataBuffer2,
+  uint8_t txBuffer[2 + 4 * N_BUNDLE_MAX];
+  LmHandlerAppData_t txData = {
+    .Buffer     = txBuffer,
     .BufferSize = 0,
-    .Port = 0,
+    .Port       = LORAWAN_APP_PORT,
   };
 
   if (LmHandlerIsBusy() == true) {
@@ -656,49 +668,30 @@ static void PrepareTxFrame(void) {
     return;
   }
 
-  // Trigger a current/voltage capture at the start of the measurement. The ring
-  // buffer already holds PRE_SAMPLES of history (the "before"); from here the
-  // sampler collects POST_SAMPLES more (sensor read, TX, RX windows, a bit after)
-  // and then dumps the whole window as JSON.
+  if (!Bundle_IsTxReady()) {
+    /* Normal measurement cycle: read sensor and add to bundle. */
+    uint16_t temp_raw, hum_raw;
+    SHT3X_Error error = SHT3X_GetRaw(&temp_raw, &hum_raw);
+    if (error != SHT3X_NO_ERROR) {
+      am_util_stdio_printf("[ERROR] SHT3X_GetRaw: %d\n", (int)error);
+      return; /* skip measurement on I2C or CRC error */
+    }
+    if (!Bundle_AddSample(temp_raw, hum_raw)) {
+      return; /* bundle not yet full: sleep until next timer tick */
+    }
+    /* AddSample promoted the buffer to IN_FLIGHT; fall through to TX. */
+  }
+
+  /* Arm the INA219 capture window just before the TX. */
   if (!CaptureActive && !IsDumpPending) {
     TriggerTicks  = am_hal_stimer_counter_get();
     PostRoll      = POST_SAMPLES;
     CaptureActive = true;
   }
 
-  AppData2.Port = LORAWAN_APP_PORT;
-  JalapenosLppReset();
-  JalapenosLppAddDeviceID(DeviceConfigGet()->PayloadDeviceId);
-
-	float temp;
-	float hum;
-	SHT3X_Error error = SHT3X_GetTempAndHumi(&temp, &hum);
-	//etError error = SHTC3_GetTempAndHumi(&temp, &hum);
-	if (error == SHT3X_ACK_ERROR) {
-		am_util_stdio_printf("[ERROR] Error while reading sensor data: ACK_ERROR\n");
-	}
-	if (error == SHT3X_CHECKSUM_ERROR) {
-		am_util_stdio_printf("[ERROR] Error while reading sensor data: CHECKSUM_ERROR\n");
-	}
-	JalapenosLppAddTemperatureAndHumidity(temp, hum);
-	JalapenosLppAddLedAndValue(AppLedStateOn ? 1 : 0, AppNumericValue);
-
-  // The current/voltage trace is no longer sent over LoRa; it is captured into
-  // the ring buffer and dumped as JSON over SWO. The LoRa uplink carries only
-  // device ID, temperature and humidity.
-  JalapenosLppCopy(AppData2.Buffer);
-  AppData2.BufferSize = JalapenosLppGetSize();
-
-  // Record the chip time of the transmission so the JSON can mark where the TX
-  // (and thus the current peak) sits within the captured window.
+  txData.BufferSize = Bundle_SerializeInFlight(txBuffer);
   TxTicks = am_hal_stimer_counter_get();
-
-  // Signal the started uplink with a short red LED pulse (turned off again
-  // by OnLedTimerEvent).
-  // am_hal_gpio_state_write(RED_LED_PIN, AM_HAL_GPIO_OUTPUT_SET);
-  // TimerStart( & LedTimer);
-
-  LmHandlerSend( & AppData2, LmHandlerParams.IsTxConfirmed);
+  LmHandlerSend( & txData, LORAMAC_HANDLER_CONFIRMED_MSG);
 }
 
 static void StartTxProcess(LmHandlerTxEvents_t txEvent) {
