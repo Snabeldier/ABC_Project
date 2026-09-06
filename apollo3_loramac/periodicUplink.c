@@ -296,7 +296,7 @@ static LmHandlerParams_t LmHandlerParams = {
 };
 
 static LmhpComplianceParams_t LmhpComplianceParams = {
-  .FwVersion.Value = FIRMWARE_VERSION,
+  .FwVersion.Value = 0x1300,
   .OnTxPeriodicityChanged = OnTxPeriodicityChanged,
   .OnTxFrameCtrlChanged = OnTxFrameCtrlChanged,
   .OnPingSlotPeriodicityChanged = OnPingSlotPeriodicityChanged,
@@ -331,15 +331,9 @@ void periodicUplink(void) {
   // Initialize transmission periodicity variable
   TxPeriodicity = APP_TX_DUTYCYCLE + randr(-APP_TX_DUTYCYCLE_RND, APP_TX_DUTYCYCLE_RND);
 
-  const Version_t appVersion = {
-    .Value = FIRMWARE_VERSION
-  };
   const Version_t gitHubVersion = {
     .Value = GITHUB_VERSION
   };
-  DisplayAppInfo("periodic-uplink-lpp", &
-    appVersion, &
-    gitHubVersion);
 
   // Show which per-node configuration was selected (see deviceConfig.c). The
   // ChipID0 value printed here is what goes into the DeviceConfigTable entry.
