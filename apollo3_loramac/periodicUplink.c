@@ -73,9 +73,9 @@ uint32_t fl_meas_ctr = 4;
  *
  * The LoRa uplink keeps sending only temperature and humidity.
  */
-#define SAMPLE_INTERVAL  10                            /* ms between samples          */
+#define SAMPLE_INTERVAL  20                            /* ms between samples (RTC has 10ms granularity; 20ms = 2 ticks, reliable) */
 #define PRE_SAMPLES      50                            /* history kept before trigger */
-#define POST_SAMPLES     250                           /* samples after the trigger   */
+#define POST_SAMPLES     150                           /* samples after the trigger; 150x20ms = 3s covers TX+RX1+RX2 */
 #define CAPTURE_MAX      (PRE_SAMPLES + POST_SAMPLES)  /* ring buffer size            */
 #define STIMER_HZ        32768UL                       /* STIMER clock (XTAL 32 kHz)  */
 
