@@ -27,7 +27,6 @@
 #include "gpio.h"
 #include "uart.h"
 #include "RegionCommon.h"
-#include "transmitConfig.h"
 #include "pins.h"
 #include "am1805.h"
 

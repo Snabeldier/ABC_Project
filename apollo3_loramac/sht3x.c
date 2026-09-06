@@ -59,10 +59,47 @@ static float SHT3X_CalcHumidity(uint16_t rawValue)
     return rh;
 }
 
+/* Shared I2C sequence used by both SHT3X_GetTempAndHumi and SHT3X_GetRaw. */
+static SHT3X_Error SHT3X_ReadRaw(uint16_t *temp_raw, uint16_t *hum_raw)
+{
+    SHT3X_Error error = SHT3X_NO_ERROR;
+    uint32_t    receive[2];
+    uint8_t     bytes[2];
+    uint8_t     checksum;
+
+    am_devices_iom_sht3x_t *pIom = (am_devices_iom_sht3x_t *)my_IomdevHdl;
+
+    uint32_t cmd_lsb = 0x00;
+    if (am_device_command_write(pIom->pIomHandle, ADDRESS_SHT3X,
+                                1, 0x24, false, &cmd_lsb, 1))
+        return SHT3X_ACK_ERROR;
+
+    am_util_delay_ms(20);
+
+    if (am_device_command_read(pIom->pIomHandle, ADDRESS_SHT3X,
+                               0, 0, false, receive, 6))
+        return SHT3X_ACK_ERROR;
+
+    bytes[0] = (uint8_t)(receive[0]);
+    bytes[1] = (uint8_t)(receive[0] >> 8);
+    checksum  = (uint8_t)(receive[0] >> 16);
+    if (SHT3X_CheckCrc(bytes, 2, checksum) != SHT3X_NO_ERROR)
+        error = SHT3X_CHECKSUM_ERROR;
+    *temp_raw = ((uint16_t)bytes[0] << 8) | bytes[1];
+
+    bytes[0] = (uint8_t)(receive[0] >> 24);
+    bytes[1] = (uint8_t)(receive[1]);
+    checksum  = (uint8_t)(receive[1] >> 8);
+    if (SHT3X_CheckCrc(bytes, 2, checksum) != SHT3X_NO_ERROR)
+        error = SHT3X_CHECKSUM_ERROR;
+    *hum_raw = ((uint16_t)bytes[0] << 8) | bytes[1];
+
+    return error;
+}
+
 /******************************************************************************
  * PUBLIC FUNCTIONS
  *****************************************************************************/
-
 
 SHT3X_Error SHT3X_SoftReset(void)
 {
@@ -82,56 +119,17 @@ SHT3X_Error SHT3X_SoftReset(void)
 
 SHT3X_Error SHT3X_GetTempAndHumi(float *temp, float *humi)
 {
-    SHT3X_Error error = SHT3X_NO_ERROR;
-    uint32_t    receive[2];
-    uint8_t     bytes[2];
-    uint8_t     checksum;
-    uint16_t    rawTemp;
-    uint16_t    rawHumi;
-
-    am_devices_iom_sht3x_t *pIom = (am_devices_iom_sht3x_t *)my_IomdevHdl;
-
-    /* Measurement command: 2-byte [0x24][0x00] sent as 1-byte instr + 1 data byte
-     * (avoids potential instrLen=2 HAL issue) */
-    uint32_t cmd_lsb = 0x00;
-    if (am_device_command_write(pIom->pIomHandle, ADDRESS_SHT3X,
-                                1, 0x24,
-                                false, &cmd_lsb, 1))
-    {
-        return SHT3X_ACK_ERROR;
-    }
-
-    am_util_delay_ms(20); /* SHT3x high repeatability max = 15.5 ms */
-
-    if (am_device_command_read(pIom->pIomHandle, ADDRESS_SHT3X,
-                               0, 0, false, receive, 6))
-    {
-        return SHT3X_ACK_ERROR;
-    }
-
-    /* Apollo3 IOM HAL packs received bytes little-endian into uint32_t words:
-     * receive[0]: byte0=T_MSB, byte1=T_LSB, byte2=CRC_T, byte3=H_MSB
-     * receive[1]: byte0=H_LSB, byte1=CRC_H */
-
-    bytes[0] = (uint8_t)(receive[0]);
-    bytes[1] = (uint8_t)(receive[0] >> 8);
-    checksum  = (uint8_t)(receive[0] >> 16);
-    if (SHT3X_CheckCrc(bytes, 2, checksum) != SHT3X_NO_ERROR)
-        error = SHT3X_CHECKSUM_ERROR;
-    rawTemp = ((uint16_t)bytes[0] << 8) | bytes[1];
-
-    bytes[0] = (uint8_t)(receive[0] >> 24);
-    bytes[1] = (uint8_t)(receive[1]);
-    checksum  = (uint8_t)(receive[1] >> 8);
-    if (SHT3X_CheckCrc(bytes, 2, checksum) != SHT3X_NO_ERROR)
-        error = SHT3X_CHECKSUM_ERROR;
-    rawHumi = ((uint16_t)bytes[0] << 8) | bytes[1];
-
+    uint16_t    rawTemp, rawHumi;
+    SHT3X_Error error = SHT3X_ReadRaw(&rawTemp, &rawHumi);
     if (error == SHT3X_NO_ERROR)
     {
         *temp = SHT3X_CalcTemperature(rawTemp);
         *humi = SHT3X_CalcHumidity(rawHumi);
     }
-
     return error;
+}
+
+SHT3X_Error SHT3X_GetRaw(uint16_t *temp_raw, uint16_t *hum_raw)
+{
+    return SHT3X_ReadRaw(temp_raw, hum_raw);
 }

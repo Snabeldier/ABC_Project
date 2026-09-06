@@ -49,6 +49,7 @@ extern void *my_IomdevHdl;
  *****************************************************************************/
 
 SHT3X_Error SHT3X_GetTempAndHumi(float *temp, float *humi);
+SHT3X_Error SHT3X_GetRaw(uint16_t *temp_raw, uint16_t *hum_raw);
 SHT3X_Error SHT3X_SoftReset(void);
 
 #endif /* SHT3X_H */
