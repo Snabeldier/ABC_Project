@@ -26,8 +26,8 @@
 #define INA219_REG_CURRENT          0x04
 #define INA219_REG_CALIBRATION      0x05
 
-/* Config: 32 V bus range, PGA=1 (+-40 mV shunt range), 12-bit ADC, 8-sample averaging (8.51 ms total both channels), continuous */
-#define INA219_CONFIG_VALUE         0x25DF
+/* Config: 32 V bus range, PGA=1 (+-40 mV shunt range), 12-bit ADC, 16-sample averaging (17.02 ms total both channels), continuous */
+#define INA219_CONFIG_VALUE         0x2667
 
 /* Shunt resistor on this board is 0.12 Ohm (measured; nominal marking "R100" = 0.1 Ohm).
  * Current_LSB is chosen to be 100 uA per LSB:
