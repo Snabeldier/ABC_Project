@@ -439,7 +439,7 @@ void periodicUplink(void) {
       BoardLowPowerHandler();
     }
     CRITICAL_SECTION_END();
-    APP_TX_DUTYCYCLE = 4000;
+    APP_TX_DUTYCYCLE = 15000;
     TxPeriodicity = 0;
     while (TxPeriodicity < APP_TX_DUTYCYCLE || TxPeriodicity > APP_TX_DUTYCYCLE + APP_TX_DUTYCYCLE_RND) {
       TxPeriodicity = APP_TX_DUTYCYCLE + randr(0, APP_TX_DUTYCYCLE_RND);
