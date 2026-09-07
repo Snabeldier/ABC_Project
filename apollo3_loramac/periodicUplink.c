@@ -631,15 +631,16 @@ static void DumpCaptureJson(void) {
   uint32_t t0     = CapTicks[oldest];
 
   /* Integrate energy over the captured window. Uses int64 arithmetic to avoid
-   * overflow (max single-sample product: 333000 uA * 3300 mV * 10000 us / 1000
-   * = ~1.1e10 nJ, well within int64 range). */
+   * overflow (max single-sample product: 333000 uA * 3300 mV * 20000 us / 1000000
+   * = ~22e6 nJ per sample, 200 samples -> ~4.4e9 nJ max, well within int64 range).
+   * uA * mV * us = 1e-6 A * 1e-3 V * 1e-6 s = 1e-15 J = 1e-6 nJ -> divide by 1e6. */
   int64_t energy_nJ = 0;
   for (uint16_t k = 1; k < n; k++) {
     uint16_t ip = (uint16_t)((oldest + k - 1) % CAPTURE_MAX);
     uint16_t ic = (uint16_t)((oldest + k)     % CAPTURE_MAX);
     uint32_t dt_us = TicksToUs(CapTicks[ic], CapTicks[ip]);
     energy_nJ += (int64_t)CapCurrent_uA[ic] * (int64_t)CapBus_mV[ic]
-                 * (int64_t)dt_us / 1000LL;
+                 * (int64_t)dt_us / 1000000LL;
   }
   /* Convert nJ -> mJ for display (integer parts only; am_util_stdio_printf
    * does not support %f). */
