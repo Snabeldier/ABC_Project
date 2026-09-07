@@ -656,6 +656,7 @@ static void DumpCaptureJson(void) {
   am_util_stdio_printf("[RESULT] Cycle %u | %s | ACK=%s | Energy=%u.%03u mJ\n",
                        (unsigned)thisCycle, typeStr, ackStr,
                        (unsigned)energy_mJ_i, (unsigned)energy_mJ_f);
+  am_util_stdio_printf("\n\n\n\n\n");
 
   IsDumpPending = 0;
 }
