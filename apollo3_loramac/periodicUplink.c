@@ -358,10 +358,14 @@ void periodicUplink(void) {
   {
     am_hal_mcuctrl_device_t device;
     am_hal_mcuctrl_info_get(AM_HAL_MCUCTRL_INFO_DEVICEID, &device);
-    (void)device;
+    am_util_stdio_printf("[INFO] ChipID0 = 0x%08X, DeviceID = %u, DevAddr = 0x%08X\n",
+                         device.ui32ChipID0,
+                         (unsigned int)DeviceConfigGet()->PayloadDeviceId,
+                         DeviceConfigGet()->DevAddr);
   }
 
   if (LmHandlerInit( & LmHandlerCallbacks, & LmHandlerParams) != LORAMAC_HANDLER_SUCCESS) {
+    am_util_stdio_printf("LoRaMac wasn't properly initialized\n");
     // Fatal error, endless loop.
     while (1) {}
   }
@@ -405,6 +409,7 @@ void periodicUplink(void) {
     TimerSetValue( & SampleTimer, SAMPLE_INTERVAL);
     TimerStart( & SampleTimer);
   } else {
+    am_util_stdio_printf("[ERROR] INA219 init failed: ACK_ERROR\n");
   }
 
   //LmHandlerDeviceTimeReq();
@@ -690,6 +695,11 @@ static void PrepareTxFrame(void) {
     : LORAMAC_HANDLER_CONFIRMED_MSG;
   LastAckReceived = 0;
 
+  am_util_stdio_printf("[CYCLE %u] %s uplink starting\n",
+                       (unsigned)CycleIndex,
+                       (CurrentFrameType == LORAMAC_HANDLER_CONFIRMED_MSG)
+                         ? "CONFIRMED" : "UNCONFIRMED");
+
   // Trigger a current/voltage capture at the start of the measurement. The ring
   // buffer already holds PRE_SAMPLES of history (the "before"); from here the
   // sampler collects POST_SAMPLES more (sensor read, TX, RX windows, a bit after)
@@ -708,7 +718,12 @@ static void PrepareTxFrame(void) {
 	float hum;
 	SHT3X_Error error = SHT3X_GetTempAndHumi(&temp, &hum);
 	//etError error = SHTC3_GetTempAndHumi(&temp, &hum);
-	(void)error;
+	if (error == SHT3X_ACK_ERROR) {
+		am_util_stdio_printf("[ERROR] Error while reading sensor data: ACK_ERROR\n");
+	}
+	if (error == SHT3X_CHECKSUM_ERROR) {
+		am_util_stdio_printf("[ERROR] Error while reading sensor data: CHECKSUM_ERROR\n");
+	}
 	JalapenosLppAddTemperatureAndHumidity(temp, hum);
 	JalapenosLppAddLedAndValue(AppLedStateOn ? 1 : 0, AppNumericValue);
 
