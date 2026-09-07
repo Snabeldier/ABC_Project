@@ -78,6 +78,7 @@ uint32_t fl_meas_ctr = 4;
 #define POST_SAMPLES     150                           /* samples after the trigger; 150x20ms = 3s covers TX+RX1+RX2 */
 #define CAPTURE_MAX      (PRE_SAMPLES + POST_SAMPLES)  /* ring buffer size            */
 #define STIMER_HZ        32768UL                       /* STIMER clock (XTAL 32 kHz)  */
+#define TOTAL_CYCLES     100                           /* 50x UNCONF + 50x CONF per run */
 
 /*!
  * Defines a random delay for application data transmission duty cycle. 1s,
@@ -656,7 +657,9 @@ static void DumpCaptureJson(void) {
   am_util_stdio_printf("[RESULT] Cycle %u | %s | ACK=%s | Energy=%u.%03u mJ\n",
                        (unsigned)thisCycle, typeStr, ackStr,
                        (unsigned)energy_mJ_i, (unsigned)energy_mJ_f);
-  am_util_stdio_printf("\n\n\n\n\n");
+  if (thisCycle == TOTAL_CYCLES - 1) {
+    am_util_stdio_printf("\n\n\n\n\n");
+  }
 
   IsDumpPending = 0;
 }
