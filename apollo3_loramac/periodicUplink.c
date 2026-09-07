@@ -695,11 +695,6 @@ static void PrepareTxFrame(void) {
     : LORAMAC_HANDLER_CONFIRMED_MSG;
   LastAckReceived = 0;
 
-  am_util_stdio_printf("[CYCLE %u] %s uplink starting\n",
-                       (unsigned)CycleIndex,
-                       (CurrentFrameType == LORAMAC_HANDLER_CONFIRMED_MSG)
-                         ? "CONFIRMED" : "UNCONFIRMED");
-
   // Trigger a current/voltage capture at the start of the measurement. The ring
   // buffer already holds PRE_SAMPLES of history (the "before"); from here the
   // sampler collects POST_SAMPLES more (sensor read, TX, RX windows, a bit after)
