@@ -653,28 +653,6 @@ static void DumpCaptureJson(void) {
       ? (LastAckReceived ? "YES" : "NO")
       : "N/A";
 
-  am_util_stdio_printf(
-    "{\"cycle\":%u,\"type\":\"%s\",\"ack\":\"%s\","
-    "\"energy_mJ\":\"%u.%03u\","
-    "\"trigger_t_us\":%u,\"tx_t_us\":%u,\"samples\":[\n",
-    (unsigned)thisCycle, typeStr, ackStr,
-    (unsigned)energy_mJ_i, (unsigned)energy_mJ_f,
-    (unsigned)TicksToUs(TriggerTicks, t0),
-    (unsigned)TicksToUs(TxTicks, t0));
-
-  for (uint16_t k = 0; k < n; k++) {
-    uint16_t idx = (uint16_t)((oldest + k) % CAPTURE_MAX);
-    am_util_stdio_printf("{\"t_us\":%u,\"current_uA\":%d,\"shunt_uV\":%d,\"bus_mV\":%d}%s\n",
-                         (unsigned)TicksToUs(CapTicks[idx], t0),
-                         (int)CapCurrent_uA[idx],
-                         (int)CapShunt_uV[idx],
-                         (int)CapBus_mV[idx],
-                         (k + 1 < n) ? "," : "");
-  }
-
-  am_util_stdio_printf("]}\n");
-
-  /* Human-readable summary — easy to grep in the SWO log. */
   am_util_stdio_printf("[RESULT] Cycle %u | %s | ACK=%s | Energy=%u.%03u mJ\n",
                        (unsigned)thisCycle, typeStr, ackStr,
                        (unsigned)energy_mJ_i, (unsigned)energy_mJ_f);
