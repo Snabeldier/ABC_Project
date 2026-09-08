@@ -47,7 +47,7 @@
 // rtc-board.c: RtcGetCalendarValue() dropped the hundredths (1 s timer
 // granularity) and RtcStartAlarm() re-based alarms on "now" instead of the
 // timer context, so the RX windows opened seconds late. Fixed there.
-uint32_t APP_TX_DUTYCYCLE = 2000;
+uint32_t APP_TX_DUTYCYCLE = 600000;
 
 uint32_t fl_meas_ctr = 4;
 
@@ -93,6 +93,15 @@ uint32_t fl_meas_ctr = 4;
  * @remark The allowed port range is from 1 up to 223. Other values are reserved.
  */
 #define LORAWAN_APP_PORT 2
+
+/*!
+ * fPort for latency measurement: downlink carries a 1-byte seq number,
+ * the node immediately echoes it back on the same port as an unconfirmed uplink.
+ */
+#define LATENCY_FPORT 5
+
+static volatile bool     latencyAckPending = false;
+static volatile uint8_t  latencySeqNo      = 0;
 
 /*!
  *
@@ -318,7 +327,7 @@ void periodicUplink(void) {
       BoardLowPowerHandler();
     }
     CRITICAL_SECTION_END();
-    APP_TX_DUTYCYCLE = 10000; // Can change this to change duty cycle when needed or wanted
+    APP_TX_DUTYCYCLE = 600000;
     TxPeriodicity = 0;
     while (TxPeriodicity < APP_TX_DUTYCYCLE || TxPeriodicity > APP_TX_DUTYCYCLE + APP_TX_DUTYCYCLE_RND) {
       TxPeriodicity = APP_TX_DUTYCYCLE + randr(0, APP_TX_DUTYCYCLE_RND);
@@ -385,6 +394,13 @@ static void OnRxData(LmHandlerAppData_t * appData, LmHandlerRxParams_t * params)
   case LORAWAN_APP_PORT: {
     if (appData -> BufferSize > 0) {
       AppNumericValue = appData -> Buffer[0];
+    }
+    break;
+  }
+  case LATENCY_FPORT: {
+    if (appData -> BufferSize > 0) {
+      latencySeqNo      = appData -> Buffer[0];
+      latencyAckPending = true;
     }
     break;
   }
@@ -499,6 +515,19 @@ static void StartTxProcess(LmHandlerTxEvents_t txEvent) {
 }
 
 static void UplinkProcess(void) {
+  // Latency ACK takes priority: echo the seq number back immediately.
+  if (latencyAckPending && !LmHandlerIsBusy()) {
+    uint8_t ackBuf[1] = { latencySeqNo };
+    LmHandlerAppData_t ackData = {
+      .Buffer     = ackBuf,
+      .BufferSize = 1,
+      .Port       = LATENCY_FPORT,
+    };
+    latencyAckPending = false;
+    LmHandlerSend(&ackData, LORAMAC_HANDLER_UNCONFIRMED_MSG);
+    return;
+  }
+
   uint8_t isPending = 0;
   CRITICAL_SECTION_BEGIN();
   isPending = IsTxFramePending;
